@@ -14,9 +14,6 @@ st.markdown("""
 <style>
 .prompt-box {background:#10182e;border:1px solid #3b4b70;border-radius:12px;padding:1rem 1.2rem;font-size:1.15rem}
 .blank {color:#ffbd59;font-weight:700;border-bottom:2px solid #ffbd59;padding:0 .25rem}
-.phase-strip {display:grid;grid-template-columns:repeat(5,1fr);gap:.35rem;margin:.6rem 0 1rem}
-.phase {padding:.55rem .35rem;text-align:center;border-radius:8px;background:#202a45;color:#9ba9c8;font-size:.8rem}
-.phase.active {background:#ffbd59;color:#151827;font-weight:800}
 .canvas {display:flex;flex-wrap:wrap;gap:3px;line-height:1.25;margin:.4rem 0 1rem}
 .token {font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.72rem;padding:3px 5px;border-radius:4px;background:#26304b;color:#dce5fa;border:1px solid transparent}
 .token.accepted {background:#153d32;border-color:#2ecc71;color:#baf5d5}
@@ -24,7 +21,7 @@ st.markdown("""
 .token.correct {background:#193b42;border-color:#34b9ca;color:#c7f8ff}
 .token.noise {color:#77829c}
 .legend-dot {display:inline-block;width:.65rem;height:.65rem;border-radius:2px;margin-right:.25rem}
-@media(max-width:700px){.phase-strip{grid-template-columns:1fr}.phase{display:none}.phase.active{display:block}.token{font-size:.66rem}}
+@media(max-width:700px){.token{font-size:.66rem}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -84,13 +81,28 @@ with final:
     st.button("Jump to commit", use_container_width=True, on_click=jump_to_commit)
 
 step_number = st.session_state[state_key]
-phases = ["1 · Canvas in", "2 · Predict", "3 · Sample", "4 · Accept / re-noise", "5 · Self-condition"]
-active_phase = 0 if step_number == 0 else min(4, int((step_number - 1) / max(num_steps - 1, 1) * 5))
-phase_html = "".join(
-    f'<div class="phase {"active" if i == active_phase else ""}">{label}</div>'
-    for i, label in enumerate(phases)
+stage_key = "canvas_tutorial_stage"
+stage_labels = {
+    "input": "1 · Canvas in",
+    "predict": "2 · Predict",
+    "sample": "3 · Sample",
+    "accept": "4 · Accept / re-noise",
+    "self_condition": "5 · Self-condition",
+}
+if stage_key not in st.session_state:
+    st.session_state[stage_key] = "input"
+
+st.markdown("**Stage inside this pass**")
+st.segmented_control(
+    "Stage inside this pass",
+    options=list(stage_labels),
+    format_func=stage_labels.get,
+    key=stage_key,
+    disabled=step_number == 0,
+    label_visibility="collapsed",
+    width="stretch",
 )
-st.markdown(f'<div class="phase-strip">{phase_html}</div>', unsafe_allow_html=True)
+selected_stage = st.session_state[stage_key]
 
 
 def render_tokens(tokens, classes=None, limit=256):
@@ -110,8 +122,7 @@ if step_number == 0:
 else:
     snap = run.steps[step_number - 1]
     is_final = step_number == num_steps
-    title = "Commit the clean argmax" if is_final else f"Denoising pass {step_number} of {num_steps}"
-    st.subheader(title)
+    st.subheader(f"Pass {step_number} of {num_steps} · {stage_labels[selected_stage]}")
     accepted_pct = snap.accepted_count / 256
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Accepted this pass", f"{snap.accepted_count} / 256", f"{accepted_pct:.0%}")
@@ -119,48 +130,79 @@ else:
     m3.metric("Argmax changes", snap.changed_from_previous)
     m4.metric("Self-conditioning gate", f"{snap.self_conditioning:.2f}")
 
-    tab_result, tab_algorithm, tab_entropy = st.tabs(["What the model sees", "Inside this pass", "Why these tokens?"])
-    with tab_result:
-        if is_final:
-            st.success("The step cap has been reached. DiffusionGemma commits the clean argmax canvas, writes its KV entries, and advances by 256 tokens.")
-            classes = ["correct" if token == target else "rejected" for token, target in zip(snap.argmax_tokens, run.target)]
-            st.markdown(render_tokens(snap.argmax_tokens, classes), unsafe_allow_html=True)
-        else:
-            st.markdown("**Canvas carried into the next pass**")
-            classes = ["accepted" if kept else "rejected" for kept in snap.accepted]
-            st.markdown(render_tokens(snap.output_canvas, classes), unsafe_allow_html=True)
-            st.caption("Green tokens are sampled candidates kept under the entropy budget. Red tokens were rejected and replaced with fresh random tokens.")
-        with st.expander("Read the current best-guess continuation"):
+    if selected_stage == "input":
+        st.info(
+            "The decoder reads the canvas carried from the previous pass. All 256 "
+            "positions attend bidirectionally to one another and to the cached prompt."
+        )
+        st.markdown(render_tokens(snap.input_canvas, ["noise"] * 256), unsafe_allow_html=True)
+        st.caption("This is one parallel model input, not a left-to-right generation prefix.")
+
+    elif selected_stage == "predict":
+        st.info(
+            "One model forward pass produces a probability distribution at every "
+            "position. The argmax is retained for stability checks, but it is not the sampled canvas."
+        )
+        classes = [
+            "correct" if token == target else "rejected"
+            for token, target in zip(snap.argmax_tokens, run.target)
+        ]
+        st.markdown(render_tokens(snap.argmax_tokens, classes), unsafe_allow_html=True)
+        st.caption(
+            "Cyan marks matches with the scripted target; red marks other predictions. "
+            "Target matching is a tutorial diagnostic and is not available to the real model."
+        )
+        with st.expander("Read the current argmax continuation"):
             visible = [token for token in snap.argmax_tokens if token not in {"<pad>", "<eos>"}]
             st.write(" ".join(visible))
 
-    with tab_algorithm:
-        left, right = st.columns(2)
-        with left:
-            st.markdown("**A. Input canvas**")
-            st.markdown(render_tokens(snap.input_canvas, ["noise"] * 256, 48), unsafe_allow_html=True)
-            st.caption("First 48 of 256 positions. Bidirectional attention processes them together.")
-            st.markdown("**B. Argmax prediction (for convergence)**")
-            classes = ["correct" if token == target else "rejected" for token, target in zip(snap.argmax_tokens, run.target)]
-            st.markdown(render_tokens(snap.argmax_tokens, classes, 48), unsafe_allow_html=True)
-        with right:
-            st.markdown("**C. Gumbel-max sample (candidate tokens)**")
-            st.markdown(render_tokens(snap.sampled_tokens, ["noise"] * 256, 48), unsafe_allow_html=True)
-            st.markdown("**D. Accept low entropy, re-noise the rest**")
-            classes = ["accepted" if kept else "rejected" for kept in snap.accepted]
-            st.markdown(render_tokens(snap.output_canvas, classes, 48), unsafe_allow_html=True)
-        st.markdown(
-            "**E. Self-condition:** the full softmax distribution from this pass is converted to a weighted token embedding and fed through a gated MLP into the next pass. "
-            "It preserves soft beliefs even where the hard token was re-noised."
+    elif selected_stage == "sample":
+        st.info(
+            "Temperature-scaled Gumbel-max draws one candidate from each of the 256 "
+            "predicted distributions in parallel. These candidates still need to pass the entropy rule."
         )
+        st.markdown(render_tokens(snap.sampled_tokens, ["noise"] * 256), unsafe_allow_html=True)
+        st.caption("Sampling can differ from argmax, especially while distributions are broad early in denoising.")
 
-    with tab_entropy:
+    elif selected_stage == "accept":
+        st.info(
+            "Positions are ranked by entropy from most to least confident. Candidates "
+            "are accepted until the shared budget is exhausted; every rejected position is replaced with fresh noise."
+        )
+        classes = ["accepted" if kept else "rejected" for kept in snap.accepted]
+        st.markdown(render_tokens(snap.output_canvas, classes), unsafe_allow_html=True)
+        st.caption(
+            "Green is an accepted sampled candidate. Red is a newly randomized replacement, "
+            "not the rejected candidate shown in the previous stage."
+        )
         order = np.argsort(snap.entropy)
         colors = [COLORS["accepted"] if snap.accepted[index] else COLORS["rejected"] for index in order]
         fig = go.Figure(go.Bar(x=np.arange(256), y=snap.entropy[order], marker_color=colors, hovertemplate="rank %{x}<br>entropy %{y:.3f}<extra></extra>"))
         fig.update_layout(height=320, title="Positions ranked from most to least confident", xaxis_title="Confidence rank", yaxis_title="Entropy (nats)", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=COLORS["text"], margin=dict(l=40, r=20, t=50, b=40))
         st.plotly_chart(fig, width="stretch")
         st.caption("The sampler walks left to right through this ranking and keeps candidates until adding the next position would exceed the shared entropy budget.")
+
+    else:
+        st.info(
+            "The complete softmax distribution is converted into a probability-weighted "
+            "token embedding. A gated MLP adds that soft belief to the next pass, even for positions that were re-noised."
+        )
+        classes = ["accepted" if kept else "rejected" for kept in snap.accepted]
+        st.markdown(render_tokens(snap.output_canvas, classes), unsafe_allow_html=True)
+        st.progress(snap.self_conditioning, text=f"Self-conditioning gate: {snap.self_conditioning:.2f} / 0.80")
+        if is_final:
+            st.success(
+                "The step cap has been reached. The clean argmax canvas is committed, "
+                "its KV entries are written, and generation advances by 256 positions."
+            )
+            with st.expander("Show the clean canvas that gets committed", expanded=True):
+                classes = [
+                    "correct" if token == target else "rejected"
+                    for token, target in zip(snap.argmax_tokens, run.target)
+                ]
+                st.markdown(render_tokens(snap.argmax_tokens, classes), unsafe_allow_html=True)
+        else:
+            st.caption("Advance to the next pass to see this soft state influence a new model prediction.")
 
 st.divider()
 st.markdown("#### What is exact, and what is simulated?")
