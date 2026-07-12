@@ -4,7 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 
-from utils.canvas_tutorial import run_tutorial
+from utils.canvas_tutorial import SCENARIOS, run_tutorial
 from utils.styles import COLORS, inject_styles
 
 
@@ -41,26 +41,45 @@ st.markdown("""
 
 st.title("🧊 Denoise a 256-token canvas")
 st.caption("Watch 256 positions become text in parallel.")
-st.markdown(
-    '<div class="prompt-box">The story about a squirrel starts with '
-    '<span class="blank">___</span></div>', unsafe_allow_html=True,
-)
+
+
+def reset_scenario():
+    st.session_state["canvas_tutorial_step"] = 0
+    st.session_state["canvas_tutorial_stage"] = "input"
 
 with st.sidebar:
     st.markdown("### Experiment")
+    scenario_id = st.selectbox(
+        "Example",
+        options=list(SCENARIOS),
+        format_func=lambda key: SCENARIOS[key].name,
+        on_change=reset_scenario,
+    )
     num_steps = st.slider("Denoising passes", 6, 20, 12)
     entropy_budget = st.slider("Entropy budget (nats)", 8.0, 80.0, 32.0, 2.0)
     temperature = st.slider("Sampling temperature", 0.4, 1.8, 1.0, 0.1)
     seed = st.number_input("Random seed", value=7, step=1)
     st.caption("Simulated logits; real 256-position block size.")
 
+scenario = SCENARIOS[scenario_id]
+st.markdown(
+    f'<div class="prompt-box">{html.escape(scenario.prompt)} '
+    '<span class="blank">___</span></div>', unsafe_allow_html=True,
+)
+
 
 @st.cache_data(show_spinner=False)
-def simulate(steps: int, budget: float, temp: float, random_seed: int):
-    return run_tutorial(num_steps=steps, entropy_budget=budget, temperature=temp, seed=random_seed)
+def simulate(scenario_key: str, steps: int, budget: float, temp: float, random_seed: int):
+    return run_tutorial(
+        scenario_id=scenario_key,
+        num_steps=steps,
+        entropy_budget=budget,
+        temperature=temp,
+        seed=random_seed,
+    )
 
 
-run = simulate(num_steps, entropy_budget, temperature, int(seed))
+run = simulate(scenario_id, num_steps, entropy_budget, temperature, int(seed))
 state_key = "canvas_tutorial_step"
 if state_key not in st.session_state:
     st.session_state[state_key] = 0

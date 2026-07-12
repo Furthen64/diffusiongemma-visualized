@@ -11,15 +11,46 @@ from dataclasses import dataclass
 import numpy as np
 
 
-PROMPT = "The story about a squirrel starts with"
+@dataclass(frozen=True)
+class TutorialScenario:
+    name: str
+    prompt: str
+    continuation: str
+    seed_offset: int
 
-STORY = """a tiny red squirrel named Pip waking before sunrise in the oldest oak of Bramble Wood. A silver acorn lay beside his nest, although he was certain it had not been there the night before. When he touched it, the acorn gave a warm little hum and pointed, like a compass, toward the northern trees. Pip packed three hazelnuts, tied on his green scarf, and followed.
 
-The forest was still blue with morning when he reached a stream. The usual stepping stones had vanished beneath rushing water. Pip noticed reeds bending together at the bank, so he wove them into a narrow bridge. Halfway across, he heard a frightened squeak. A field mouse clung to a wet branch below. Pip lowered his scarf, pulled her up, and together they crossed. Her name was Moss, and she knew the path north.
+SCENARIOS = {
+    "creative": TutorialScenario(
+        name="Creative writing",
+        prompt="The story about a squirrel starts with",
+        continuation="""a tiny red squirrel named Pip waking before sunrise in the oldest oak of Bramble Wood. A silver acorn lay beside his nest, although he was certain it had not been there the night before. When he touched it, the acorn gave a warm hum and pointed like a compass toward the northern trees. Pip packed three hazelnuts, tied on his green scarf, and followed.
 
-Beyond the stream they found a clearing where every bird was silent. At its center stood a hollow tree with a door no bigger than Pip's paw. The silver acorn hummed again. Pip placed it in a round notch, and the door opened onto a chamber full of golden seeds. An old owl explained that the seeds held the forest's spring songs, stolen and hidden by the winter wind.
+At the river he found the stepping stones hidden beneath rushing water. Pip wove fallen reeds into a narrow bridge, then stopped halfway to rescue a field mouse clinging to a branch. Her name was Moss, and she knew where the silver acorn wanted to go.
 
-Pip could have carried only one seed home, but Moss found an abandoned walnut shell. They filled it, pushed it uphill, and scattered the songs from the ridge. At once, finches, thrushes, and wrens began to sing. Buds opened across Bramble Wood. Pip returned to his oak at sunset, tired and muddy, with one ordinary acorn in his pocket and a new friend beside him. From then on, whenever the forest faced a puzzle, its smallest neighbors remembered that courage could begin with one careful step."""
+Together they reached a hollow tree whose little door opened only for the acorn. Inside waited a store of golden seeds holding every spring song in the forest. Pip and Moss rolled them home in a walnut shell and scattered them from the ridge. Birds sang, buds opened, and Pip learned that even the smallest traveler could carry a whole season home.""",
+        seed_offset=0,
+    ),
+    "technical": TutorialScenario(
+        name="Technical explanation",
+        prompt="Explain why a database index makes queries faster:",
+        continuation="""A database index is a separate data structure that maps selected column values to the rows containing them. Without an index, the database may need to inspect every row to answer a filter such as WHERE email = 'user@example.com'. This is a full table scan, and its cost grows roughly with the number of rows.
+
+A common B-tree index keeps keys ordered in a balanced tree. The database follows a small number of branches to locate a key, so lookup cost grows logarithmically rather than linearly. Range queries also benefit because neighboring keys are stored in order. Hash indexes provide fast equality lookup but generally do not support ordered ranges.
+
+Indexes are not free. They consume storage, must be updated whenever indexed data changes, and can slow inserts or writes. Query planners compare these costs with table-scan costs and choose an index only when it is likely to reduce total work. Effective indexing therefore focuses on columns used frequently for filtering, joining, and ordering, while avoiding redundant indexes.""",
+        seed_offset=101,
+    ),
+    "legal": TutorialScenario(
+        name="Contract analysis",
+        prompt="Explain this contract clause in plain English: The agreement renews automatically for successive one-year terms unless either party gives 60 days' written notice.",
+        continuation="""The contract continues for another year automatically when the current term ends. Either party can prevent renewal, but it must send written notice at least 60 days before the expiration date. If notice arrives later than that deadline, the agreement may already have renewed for the next one-year period.
+
+In practice, each party should identify the exact end date, calculate the notice deadline, and confirm which delivery methods and addresses count as written notice under the agreement. It is also important to check whether another section permits termination after renewal, requires a particular notice format, or imposes an early-termination fee.
+
+This clause does not require either party to negotiate a new agreement each year. Silence results in renewal. The practical risk is missing the notice window and remaining bound for an additional term. This plain-language summary is educational and is not a substitute for legal advice about a specific agreement or jurisdiction.""",
+        seed_offset=202,
+    ),
+}
 
 DISTRACTORS = (
     "the a an and or but then when while under over beside through toward away "
@@ -61,18 +92,19 @@ class TutorialRun:
 
 def run_tutorial(
     *, canvas_size: int = 256, num_steps: int = 12, entropy_budget: float = 32.0,
-    temperature: float = 1.0, seed: int = 7,
+    temperature: float = 1.0, seed: int = 7, scenario_id: str = "creative",
 ) -> TutorialRun:
     """Run the educational denoising loop and retain every intermediate value."""
-    target = _tokens(STORY)
-    if len(target) < canvas_size:
-        target.extend(["<eos>"] + ["<pad>"] * (canvas_size - len(target) - 1))
-    target = target[:canvas_size]
+    scenario = SCENARIOS[scenario_id]
+    target = _tokens(scenario.continuation)
+    if len(target) >= canvas_size:
+        raise ValueError(f"Scenario {scenario_id!r} must leave room for an <eos> token")
+    target.extend(["<eos>"] + ["<pad>"] * (canvas_size - len(target) - 1))
     vocabulary = list(dict.fromkeys(target + DISTRACTORS + ["<eos>", "<pad>"]))
     token_to_id = {token: index for index, token in enumerate(vocabulary)}
     target_ids = np.array([token_to_id[token] for token in target])
     vocab_size = len(vocabulary)
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(seed + scenario.seed_offset)
     canvas_ids = rng.integers(0, vocab_size, size=canvas_size)
     initial = tuple(vocabulary[index] for index in canvas_ids)
     # Positions become easy at different times, avoiding an artificial left-to-right reveal.
@@ -133,7 +165,7 @@ def run_tutorial(
         previous_argmax = argmax_ids
 
     return TutorialRun(
-        prompt=PROMPT,
+        prompt=scenario.prompt,
         target=tuple(target),
         vocabulary=tuple(vocabulary),
         initial_canvas=initial,

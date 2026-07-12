@@ -35,23 +35,41 @@ result = sim.run_full_block()
 st.markdown("#### Self-Conditioning Flow")
 flow_html = """
 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:1rem 0;">
-  <span style="padding:8px 14px;border-radius:6px;background:#3498db22;border:1px solid #3498db;
-               color:#3498db;font-family:monospace;">Step N Logits</span>
+  <span class="flow-stage" style="background:#3498db22;border:1px solid #3498db;color:#3498db;">
+    Step N Logits
+    <span class="flow-help" tabindex="0" aria-label="About Step N Logits"
+          data-tooltip="The model's raw, unnormalized score for every possible token at each canvas position.">?</span>
+  </span>
   <span style="color:#666;">→</span>
-  <span style="padding:8px 14px;border-radius:6px;background:#e67e2222;border:1px solid #e67e22;
-               color:#e67e22;font-family:monospace;">Softmax</span>
+  <span class="flow-stage" style="background:#e67e2222;border:1px solid #e67e22;color:#e67e22;">
+    Softmax
+    <span class="flow-help" tabindex="0" aria-label="About Softmax"
+          data-tooltip="Converts the raw logits into probabilities that add up to 1 for each canvas position.">?</span>
+  </span>
   <span style="color:#666;">→</span>
-  <span style="padding:8px 14px;border-radius:6px;background:#2ecc7122;border:1px solid #2ecc71;
-               color:#2ecc71;font-family:monospace;">Weighted Avg Embeddings</span>
+  <span class="flow-stage" style="background:#2ecc7122;border:1px solid #2ecc71;color:#2ecc71;">
+    Weighted Avg Embeddings
+    <span class="flow-help" tabindex="0" aria-label="About Weighted Average Embeddings"
+          data-tooltip="Blends token embeddings using those probabilities. Likely tokens contribute more, preserving uncertainty instead of choosing one token early.">?</span>
+  </span>
   <span style="color:#666;">→</span>
-  <span style="padding:8px 14px;border-radius:6px;background:#e74c3c22;border:1px solid #e74c3c;
-               color:#e74c3c;font-family:monospace;">Gated MLP (gate={:.2f})</span>
+  <span class="flow-stage" style="background:#e74c3c22;border:1px solid #e74c3c;color:#e74c3c;">
+    Gated MLP (gate={:.2f})
+    <span class="flow-help" tabindex="0" aria-label="About the Gated MLP"
+          data-tooltip="Transforms the soft embedding. The gate controls how strongly the previous step can influence the next one; 0 means no influence.">?</span>
+  </span>
   <span style="color:#666;">→</span>
-  <span style="padding:8px 14px;border-radius:6px;background:#ecf0f1;border:1px solid #95a5a6;
-               color:#333;font-family:monospace;">+ Canvas Embeddings</span>
+  <span class="flow-stage" style="background:#ecf0f1;border:1px solid #95a5a6;color:#333;">
+    + Canvas Embeddings
+    <span class="flow-help" tabindex="0" aria-label="About Canvas Embeddings"
+          data-tooltip="Adds the transformed memory from Step N to the embeddings of the current noisy canvas.">?</span>
+  </span>
   <span style="color:#666;">→</span>
-  <span style="padding:8px 14px;border-radius:6px;background:#3498db22;border:1px solid #3498db;
-               color:#3498db;font-family:monospace;">Step N+1 Input</span>
+  <span class="flow-stage" style="background:#3498db22;border:1px solid #3498db;color:#3498db;">
+    Step N+1 Input
+    <span class="flow-help" tabindex="0" aria-label="About Step N plus 1 Input"
+          data-tooltip="The next denoising step now receives both the current canvas and a soft memory of the previous prediction.">?</span>
+  </span>
 </div>
 """.format(result.steps[-1].self_cond_gate if result.steps else 0)
 st.markdown(flow_html, unsafe_allow_html=True)
@@ -59,10 +77,11 @@ st.markdown(flow_html, unsafe_allow_html=True)
 # --- Gate value over steps ---
 st.markdown("#### Gate Value Over Steps")
 gate_vals = [s.self_cond_gate for s in result.steps]
+step_numbers = [s.step + 1 for s in result.steps]
 fig_gate = go.Figure()
 fig_gate.add_trace(
     go.Scatter(
-        x=list(range(len(gate_vals))),
+        x=step_numbers,
         y=gate_vals,
         mode="lines+markers",
         marker_color=COLORS["denoise"],
@@ -87,16 +106,31 @@ st.plotly_chart(fig_gate, width="stretch")
 # --- Distribution comparison across steps ---
 st.markdown("#### How Self-Conditioning Sharpens Distributions")
 st.markdown(
-    "Select two steps to compare.  The distributions become sharper (lower entropy) "
-    "over time as self-conditioning provides a stable signal."
+    "Choose an earlier and a later denoising step. Both charts show the model's "
+    "predictions for the **first token position**, so you can compare how its "
+    "confidence changes over time."
 )
 
 step_a, step_b = st.columns(2)
 with step_a:
-    idx_a = st.slider("Step A", 0, len(result.steps) - 1, 0, key="sa")
+    selected_step_a = st.slider(
+        "Earlier step",
+        1,
+        len(result.steps),
+        1,
+        key="self_conditioning_earlier_step",
+    )
 with step_b:
-    idx_b = st.slider("Step B", 0, len(result.steps) - 1, min(3, len(result.steps) - 1), key="sb")
+    selected_step_b = st.slider(
+        "Later step",
+        1,
+        len(result.steps),
+        min(4, len(result.steps)),
+        key="self_conditioning_later_step",
+    )
 
+idx_a = selected_step_a - 1
+idx_b = selected_step_b - 1
 snap_a = result.steps[idx_a]
 snap_b = result.steps[idx_b]
 
@@ -104,8 +138,23 @@ snap_b = result.steps[idx_b]
 softmax_a = sim._logits_to_softmax(snap_a.logits)
 softmax_b = sim._logits_to_softmax(snap_b.logits)
 
+# Keep the token set and x-axis order fixed as the sliders move. Previously,
+# the tokens were selected and sorted by Step A's probabilities, which made
+# Step A look artificially smooth and Step B look randomly ordered.
 top_k = min(15, sim.vocab_size)
-top_indices = np.argsort(softmax_a[0])[-top_k:]
+final_softmax = sim._logits_to_softmax(result.steps[-1].logits)
+top_indices = np.argsort(final_softmax[0])[-top_k:]
+top_indices = np.array(sorted(top_indices, key=lambda idx: sim.vocab[idx]))
+shared_y_max = max(
+    float(np.max(softmax_a[0, top_indices])),
+    float(np.max(softmax_b[0, top_indices])),
+)
+shared_y_range = [0, max(shared_y_max * 1.1, 0.05)]
+
+st.caption(
+    "Both charts use the same tokens, selected from the final step and ordered "
+    "alphabetically. Their probability scales are identical."
+)
 
 col_chart_a, col_chart_b = st.columns(2)
 with col_chart_a:
@@ -118,7 +167,7 @@ with col_chart_a:
         )
     )
     fig_a.update_layout(
-        title=f"Step {idx_a} — Position 0",
+        title=f"Step {selected_step_a} — First token position",
         yaxis_title="Probability",
         height=300,
         margin=dict(l=40, r=20, t=40, b=40),
@@ -126,7 +175,7 @@ with col_chart_a:
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color=COLORS["text"]),
         xaxis=dict(gridcolor="#333"),
-        yaxis=dict(gridcolor="#333"),
+        yaxis=dict(gridcolor="#333", range=shared_y_range),
     )
     st.plotly_chart(fig_a, width="stretch")
 
@@ -140,7 +189,7 @@ with col_chart_b:
         )
     )
     fig_b.update_layout(
-        title=f"Step {idx_b} — Position 0",
+        title=f"Step {selected_step_b} — First token position",
         yaxis_title="Probability",
         height=300,
         margin=dict(l=40, r=20, t=40, b=40),
@@ -148,7 +197,7 @@ with col_chart_b:
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color=COLORS["text"]),
         xaxis=dict(gridcolor="#333"),
-        yaxis=dict(gridcolor="#333"),
+        yaxis=dict(gridcolor="#333", range=shared_y_range),
     )
     st.plotly_chart(fig_b, width="stretch")
 
@@ -159,7 +208,7 @@ mean_entropies = [float(np.mean(s.entropy)) for s in result.steps]
 fig_ent = go.Figure()
 fig_ent.add_trace(
     go.Scatter(
-        x=list(range(len(mean_entropies))),
+        x=step_numbers,
         y=mean_entropies,
         mode="lines+markers",
         marker_color=COLORS["confident"],

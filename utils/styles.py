@@ -49,6 +49,61 @@ PAGE_CSS = """
         color: #b0b0b0;
         margin-bottom: 0.5rem;
     }
+    .flow-stage {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 8px 10px 8px 14px;
+        border-radius: 6px;
+        font-family: monospace;
+    }
+    .flow-help {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.15rem;
+        height: 1.15rem;
+        border: 1px solid currentColor;
+        border-radius: 50%;
+        font-family: sans-serif;
+        font-size: 0.75rem;
+        font-weight: 700;
+        line-height: 1;
+        cursor: help;
+        opacity: 0.8;
+        outline-offset: 2px;
+    }
+    .flow-help::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        z-index: 20;
+        left: 50%;
+        bottom: calc(100% + 10px);
+        width: 240px;
+        padding: 0.65rem 0.75rem;
+        transform: translateX(-50%);
+        border: 1px solid #4b5563;
+        border-radius: 6px;
+        background: #111827;
+        color: #eaeaea;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+        font-family: sans-serif;
+        font-size: 0.82rem;
+        font-weight: 400;
+        line-height: 1.35;
+        text-align: left;
+        white-space: normal;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 120ms ease;
+    }
+    .flow-help:hover::after,
+    .flow-help:focus::after {
+        opacity: 1;
+        visibility: visible;
+    }
 </style>
 """
 

@@ -1,5 +1,10 @@
 [browser]
 gatherUsageStats = false
 
+[client]
+# Hide Streamlit's developer toolbar and its actions (rerun, clear cache,
+# deploy), including the keyboard shortcuts attached to those actions.
+toolbarMode = "minimal"
+
 [server]
 headless = true
