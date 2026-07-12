@@ -12,7 +12,7 @@ st.set_page_config(page_title="Canvas Denoising", page_icon="🧊", layout="wide
 inject_styles()
 st.markdown("""
 <style>
-.prompt-box {background:#10182e;border:1px solid #3b4b70;border-radius:12px;padding:1rem 1.2rem;font-size:1.15rem}
+.prompt-box {background:#10182e;border:1px solid #3b4b70;border-radius:12px;padding:1rem 1.2rem;font:1.05rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .blank {color:#ffbd59;font-weight:700;border-bottom:2px solid #ffbd59;padding:0 .25rem}
 .canvas {display:flex;flex-wrap:wrap;gap:3px;line-height:1.25;margin:.4rem 0 1rem}
 .token {font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.72rem;padding:3px 5px;border-radius:4px;background:#26304b;color:#dce5fa;border:1px solid transparent}
@@ -24,18 +24,23 @@ st.markdown("""
 .output-card {background:linear-gradient(135deg,#14233d,#10182e);border:1px solid #3b5a82;border-left:5px solid #34b9ca;border-radius:12px;padding:1.1rem 1.3rem;margin:.65rem 0 1rem}
 .output-card.committed {border-color:#2ecc71;border-left-color:#2ecc71;background:linear-gradient(135deg,#15332d,#101d25)}
 .output-kicker {color:#8fa9ca;font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.45rem}
-.output-text {color:#f2f6ff;font-family:Georgia,'Times New Roman',serif;font-size:1.08rem;line-height:1.72;margin:0}
+.output-state {display:inline-block;border-radius:999px;padding:.18rem .55rem;margin-right:.55rem;font-weight:900}
+.output-state.tentative {background:#34b9ca22;border:1px solid #34b9ca;color:#a9edf5}
+.output-state.committed {background:#2ecc7122;border:1px solid #2ecc71;color:#8af0b5}
+.output-text {color:#f2f6ff;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:1rem;line-height:1.9;margin:0}
 .output-prompt {color:#8fa9ca}
+.output-token {display:inline;padding:.08rem .12rem;border-radius:3px}
+.output-token.tentative {color:#f2f6ff}
+.output-token.committed {color:#c5f7da;background:#2ecc7124;border:1px solid #278a50}
+.confidence-legend {display:flex;align-items:center;gap:.5rem;color:#8fa9ca;font:700 .7rem ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:.65rem}
+.confidence-ramp {width:9rem;height:.45rem;border-radius:999px;background:linear-gradient(90deg,hsl(0 72% 50%),hsl(60 72% 48%),hsl(120 62% 43%))}
 .output-empty {color:#8fa9ca;font-style:italic}
 @media(max-width:700px){.token{font-size:.66rem}}
 </style>
 """, unsafe_allow_html=True)
 
 st.title("🧊 Denoise a 256-token canvas")
-st.markdown(
-    "Follow one complete block from random tokens to a committed continuation. "
-    "Every position is predicted **in parallel**, not from left to right."
-)
+st.caption("Watch 256 positions become text in parallel.")
 st.markdown(
     '<div class="prompt-box">The story about a squirrel starts with '
     '<span class="blank">___</span></div>', unsafe_allow_html=True,
@@ -47,7 +52,7 @@ with st.sidebar:
     entropy_budget = st.slider("Entropy budget (nats)", 8.0, 80.0, 32.0, 2.0)
     temperature = st.slider("Sampling temperature", 0.4, 1.8, 1.0, 0.1)
     seed = st.number_input("Random seed", value=7, step=1)
-    st.caption("The block size stays at DiffusionGemma's real 256 positions.")
+    st.caption("Simulated logits; real 256-position block size.")
 
 
 @st.cache_data(show_spinner=False)
@@ -121,48 +126,67 @@ def render_tokens(tokens, classes=None, limit=256):
     return '<div class="canvas">' + "".join(chunks) + "</div>"
 
 
-def render_readable_output(tokens, committed=False):
+def render_readable_output(tokens, entropy, committed=False):
     visible = []
-    for token in tokens:
+    for index, token in enumerate(tokens):
         if token == "<eos>":
             break
         if token != "<pad>":
-            visible.append(token)
-    continuation = html.escape(" ".join(visible))
+            visible.append((index, token))
+    if committed:
+        continuation = " ".join(
+            f'<span class="output-token committed">{html.escape(token)}</span>'
+            for _, token in visible
+        )
+    else:
+        max_entropy = np.log(len(run.vocabulary))
+        pieces = []
+        for index, token in visible:
+            confidence = float(np.clip(1.0 - entropy[index] / max_entropy, 0.0, 1.0))
+            hue = round(confidence * 120)
+            color = f"hsl({hue} 72% 48%)"
+            background = f"hsl({hue} 65% 45% / 0.20)"
+            pieces.append(
+                f'<span class="output-token tentative" title="confidence {confidence:.0%}" '
+                f'style="border:1px solid {color};background:{background}">'
+                f'{html.escape(token)}</span>'
+            )
+        continuation = " ".join(pieces)
+    token_state = "committed" if committed else "tentative"
     card_class = "output-card committed" if committed else "output-card"
-    label = "Committed 256-token block" if committed else "Current best guess · not emitted yet"
+    state_label = "Committed" if committed else "Denoising"
+    detail = "256-token block" if committed else "current argmax guess"
+    legend = "" if committed else (
+        '<div class="confidence-legend"><span>uncertain</span>'
+        '<span class="confidence-ramp"></span><span>confident</span></div>'
+    )
     return (
-        f'<div class="{card_class}"><div class="output-kicker">{label}</div>'
+        f'<div class="{card_class}"><div class="output-kicker">'
+        f'<span class="output-state {token_state}">{state_label}</span>{detail}</div>'
         f'<p class="output-text"><span class="output-prompt">{html.escape(run.prompt)} </span>'
-        f'{continuation}</p></div>'
+        f'{continuation}</p>{legend}</div>'
     )
 
 
 if step_number == 0:
     st.subheader("Step 0 · Initialize with noise")
-    st.info("After the prompt prefill, a fresh 256-position canvas is filled with random tokens. The prompt is in the KV cache; it is not part of this canvas.")
+    st.caption("The prompt is cached; the internal canvas starts as random tokens.")
     st.markdown(
         '<div class="output-card"><div class="output-kicker">Generated output</div>'
-        '<p class="output-text output-empty">Nothing yet. The random canvas is internal working state, not text shown to the user.</p></div>',
+        '<p class="output-text output-empty">Nothing yet.</p></div>',
         unsafe_allow_html=True,
     )
     st.markdown(render_tokens(run.initial_canvas, ["noise"] * 256), unsafe_allow_html=True)
-    st.caption("Nothing is generated or committed yet. Next, all 256 positions attend bidirectionally to the prompt and to each other.")
 else:
     snap = run.steps[step_number - 1]
     is_final = step_number == num_steps
     st.subheader(f"Pass {step_number} of {num_steps} · {stage_labels[selected_stage]}")
     if is_final:
-        st.success(
-            "Generation is complete. The clean argmax below is the output emitted for this block; "
-            "the colored token grids farther down are internal algorithm state."
-        )
-    else:
-        st.caption(
-            "Read this panel to follow the text taking shape. It shows the model's clean argmax guess, "
-            "while the selected stage below explains its internal work."
-        )
-    st.markdown(render_readable_output(snap.argmax_tokens, committed=is_final), unsafe_allow_html=True)
+        st.success("Generation complete · clean argmax committed")
+    st.markdown(
+        render_readable_output(snap.argmax_tokens, snap.entropy, committed=is_final),
+        unsafe_allow_html=True,
+    )
     accepted_pct = snap.accepted_count / 256
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Accepted this pass", f"{snap.accepted_count} / 256", f"{accepted_pct:.0%}")
@@ -171,79 +195,37 @@ else:
     m4.metric("Self-conditioning gate", f"{snap.self_conditioning:.2f}")
 
     if selected_stage == "input":
-        st.info(
-            "The decoder reads the canvas carried from the previous pass. All 256 "
-            "positions attend bidirectionally to one another and to the cached prompt."
-        )
+        st.markdown("**Canvas entering this pass** · bidirectional attention reads all positions together.")
         st.markdown(render_tokens(snap.input_canvas, ["noise"] * 256), unsafe_allow_html=True)
-        st.caption("This is one parallel model input, not a left-to-right generation prefix.")
 
     elif selected_stage == "predict":
-        st.info(
-            "One model forward pass produces a probability distribution at every "
-            "position. The argmax is retained for stability checks, but it is not the sampled canvas."
-        )
+        st.markdown("**Argmax prediction** · cyan matches the scripted target; red does not.")
         classes = [
             "correct" if token == target else "rejected"
             for token, target in zip(snap.argmax_tokens, run.target)
         ]
         st.markdown(render_tokens(snap.argmax_tokens, classes), unsafe_allow_html=True)
-        st.caption(
-            "Cyan marks matches with the scripted target; red marks other predictions. "
-            "Target matching is a tutorial diagnostic and is not available to the real model."
-        )
-        with st.expander("Read the current argmax continuation"):
-            visible = [token for token in snap.argmax_tokens if token not in {"<pad>", "<eos>"}]
-            st.write(" ".join(visible))
 
     elif selected_stage == "sample":
-        st.info(
-            "Temperature-scaled Gumbel-max draws one candidate from each of the 256 "
-            "predicted distributions in parallel. These candidates still need to pass the entropy rule."
-        )
+        st.markdown("**Sampled candidates** · one Gumbel-max draw per position.")
         st.markdown(render_tokens(snap.sampled_tokens, ["noise"] * 256), unsafe_allow_html=True)
-        st.caption("Sampling can differ from argmax, especially while distributions are broad early in denoising.")
 
     elif selected_stage == "accept":
-        st.info(
-            "Positions are ranked by entropy from most to least confident. Candidates "
-            "are accepted until the shared budget is exhausted; every rejected position is replaced with fresh noise."
-        )
+        st.markdown("**Next canvas** · green candidates are kept; red positions are re-noised.")
         classes = ["accepted" if kept else "rejected" for kept in snap.accepted]
         st.markdown(render_tokens(snap.output_canvas, classes), unsafe_allow_html=True)
-        st.caption(
-            "Green is an accepted sampled candidate. Red is a newly randomized replacement, "
-            "not the rejected candidate shown in the previous stage."
-        )
         order = np.argsort(snap.entropy)
         colors = [COLORS["accepted"] if snap.accepted[index] else COLORS["rejected"] for index in order]
         fig = go.Figure(go.Bar(x=np.arange(256), y=snap.entropy[order], marker_color=colors, hovertemplate="rank %{x}<br>entropy %{y:.3f}<extra></extra>"))
         fig.update_layout(height=320, title="Positions ranked from most to least confident", xaxis_title="Confidence rank", yaxis_title="Entropy (nats)", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=COLORS["text"], margin=dict(l=40, r=20, t=50, b=40))
         st.plotly_chart(fig, width="stretch")
-        st.caption("The sampler walks left to right through this ranking and keeps candidates until adding the next position would exceed the shared entropy budget.")
 
     else:
-        st.info(
-            "The complete softmax distribution is converted into a probability-weighted "
-            "token embedding. A gated MLP adds that soft belief to the next pass, even for positions that were re-noised."
-        )
+        st.markdown("**Soft feedback** · the full prediction distribution conditions the next pass.")
         classes = ["accepted" if kept else "rejected" for kept in snap.accepted]
         st.markdown(render_tokens(snap.output_canvas, classes), unsafe_allow_html=True)
         st.progress(snap.self_conditioning, text=f"Self-conditioning gate: {snap.self_conditioning:.2f} / 0.80")
         if is_final:
-            st.caption("The final causal encoder pass writes this block into the KV cache and advances by 256 positions.")
-            with st.expander("Show the clean canvas that gets committed", expanded=True):
-                classes = [
-                    "correct" if token == target else "rejected"
-                    for token, target in zip(snap.argmax_tokens, run.target)
-                ]
-                st.markdown(render_tokens(snap.argmax_tokens, classes), unsafe_allow_html=True)
-        else:
-            st.caption("Advance to the next pass to see this soft state influence a new model prediction.")
+            st.caption("Final encoder pass writes the block to the KV cache.")
 
-st.divider()
-st.markdown("#### What is exact, and what is simulated?")
-st.markdown(
-    "The **256-token canvas, bidirectional denoise pass, temperature-scaled Gumbel-max sampling, per-position entropy, entropy-bound acceptance, re-noising, self-conditioning, convergence check, and final argmax commit** mirror the documented algorithm. "
-    "The probabilities are generated around a scripted squirrel story instead of running the 26B-parameter model, so the words and confidence values are illustrative."
-)
+st.caption("Tutorial simulation: the algorithm mirrors DiffusionGemma, while the story probabilities are scripted.")
