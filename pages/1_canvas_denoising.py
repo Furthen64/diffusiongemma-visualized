@@ -21,6 +21,12 @@ st.markdown("""
 .token.correct {background:#193b42;border-color:#34b9ca;color:#c7f8ff}
 .token.noise {color:#77829c}
 .legend-dot {display:inline-block;width:.65rem;height:.65rem;border-radius:2px;margin-right:.25rem}
+.output-card {background:linear-gradient(135deg,#14233d,#10182e);border:1px solid #3b5a82;border-left:5px solid #34b9ca;border-radius:12px;padding:1.1rem 1.3rem;margin:.65rem 0 1rem}
+.output-card.committed {border-color:#2ecc71;border-left-color:#2ecc71;background:linear-gradient(135deg,#15332d,#101d25)}
+.output-kicker {color:#8fa9ca;font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.45rem}
+.output-text {color:#f2f6ff;font-family:Georgia,'Times New Roman',serif;font-size:1.08rem;line-height:1.72;margin:0}
+.output-prompt {color:#8fa9ca}
+.output-empty {color:#8fa9ca;font-style:italic}
 @media(max-width:700px){.token{font-size:.66rem}}
 </style>
 """, unsafe_allow_html=True)
@@ -62,6 +68,7 @@ def move_step(delta: int):
 
 def jump_to_commit():
     st.session_state[state_key] = num_steps
+    st.session_state["canvas_tutorial_stage"] = "self_condition"
 
 
 back, slider_col, forward, final = st.columns([1, 7, 1, 1.35], vertical_alignment="bottom")
@@ -114,15 +121,48 @@ def render_tokens(tokens, classes=None, limit=256):
     return '<div class="canvas">' + "".join(chunks) + "</div>"
 
 
+def render_readable_output(tokens, committed=False):
+    visible = []
+    for token in tokens:
+        if token == "<eos>":
+            break
+        if token != "<pad>":
+            visible.append(token)
+    continuation = html.escape(" ".join(visible))
+    card_class = "output-card committed" if committed else "output-card"
+    label = "Committed 256-token block" if committed else "Current best guess · not emitted yet"
+    return (
+        f'<div class="{card_class}"><div class="output-kicker">{label}</div>'
+        f'<p class="output-text"><span class="output-prompt">{html.escape(run.prompt)} </span>'
+        f'{continuation}</p></div>'
+    )
+
+
 if step_number == 0:
     st.subheader("Step 0 · Initialize with noise")
     st.info("After the prompt prefill, a fresh 256-position canvas is filled with random tokens. The prompt is in the KV cache; it is not part of this canvas.")
+    st.markdown(
+        '<div class="output-card"><div class="output-kicker">Generated output</div>'
+        '<p class="output-text output-empty">Nothing yet. The random canvas is internal working state, not text shown to the user.</p></div>',
+        unsafe_allow_html=True,
+    )
     st.markdown(render_tokens(run.initial_canvas, ["noise"] * 256), unsafe_allow_html=True)
     st.caption("Nothing is generated or committed yet. Next, all 256 positions attend bidirectionally to the prompt and to each other.")
 else:
     snap = run.steps[step_number - 1]
     is_final = step_number == num_steps
     st.subheader(f"Pass {step_number} of {num_steps} · {stage_labels[selected_stage]}")
+    if is_final:
+        st.success(
+            "Generation is complete. The clean argmax below is the output emitted for this block; "
+            "the colored token grids farther down are internal algorithm state."
+        )
+    else:
+        st.caption(
+            "Read this panel to follow the text taking shape. It shows the model's clean argmax guess, "
+            "while the selected stage below explains its internal work."
+        )
+    st.markdown(render_readable_output(snap.argmax_tokens, committed=is_final), unsafe_allow_html=True)
     accepted_pct = snap.accepted_count / 256
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Accepted this pass", f"{snap.accepted_count} / 256", f"{accepted_pct:.0%}")
@@ -191,10 +231,7 @@ else:
         st.markdown(render_tokens(snap.output_canvas, classes), unsafe_allow_html=True)
         st.progress(snap.self_conditioning, text=f"Self-conditioning gate: {snap.self_conditioning:.2f} / 0.80")
         if is_final:
-            st.success(
-                "The step cap has been reached. The clean argmax canvas is committed, "
-                "its KV entries are written, and generation advances by 256 positions."
-            )
+            st.caption("The final causal encoder pass writes this block into the KV cache and advances by 256 positions.")
             with st.expander("Show the clean canvas that gets committed", expanded=True):
                 classes = [
                     "correct" if token == target else "rejected"
