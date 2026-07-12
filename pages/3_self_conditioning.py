@@ -36,7 +36,7 @@ st.markdown("#### Self-Conditioning Flow")
 flow_html = """
 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:1rem 0;">
   <span class="flow-stage" style="background:#3498db22;border:1px solid #3498db;color:#3498db;">
-    Step N Logits
+    Step N's Logits
     <span class="flow-help" tabindex="0" aria-label="About Step N Logits"
           data-tooltip="The model's raw, unnormalized score for every possible token at each canvas position.">?</span>
   </span>
