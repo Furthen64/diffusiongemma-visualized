@@ -37,39 +37,8 @@ total_steps = len(result.steps)
 
 # --- Step navigation ---
 st.markdown("### Step Navigation")
-nav_cols = st.columns([1, 1, 1, 6])
-
-if "step_idx" not in st.session_state:
-    st.session_state.step_idx = 0
-
-def _prev():
-    st.session_state.step_idx = max(0, st.session_state.step_idx - 1)
-
-def _next():
-    st.session_state.step_idx = min(total_steps - 1, st.session_state.step_idx + 1)
-
-def _first():
-    st.session_state.step_idx = 0
-
-def _last():
-    st.session_state.step_idx = total_steps - 1
-
-with nav_cols[0]:
-    st.button("⏮", on_click=_first, key="first")
-with nav_cols[1]:
-    st.button("◀", on_click=_prev, key="prev")
-with nav_cols[2]:
-    st.button("▶", on_click=_next, key="next")
-
-step_idx = st.session_state.step_idx
+step_idx = st.slider("Step", 0, total_steps - 1, 0)
 snapshot = result.steps[step_idx]
-
-with nav_cols[3]:
-    step_idx = st.slider(
-        "Step", 0, total_steps - 1, step_idx, key="step_slider"
-    )
-    st.session_state.step_idx = step_idx
-    snapshot = result.steps[step_idx]
 
 # --- Status badge ---
 if snapshot.converged:
@@ -148,7 +117,7 @@ with right:
             accepted=snapshot.accepted_mask,
             title=f"Entropy per Position (Step {snapshot.step + 1})",
         ),
-        use_container_width=True,
+        width="stretch",
     )
 
     # Accepted count over all steps
@@ -181,11 +150,6 @@ with right:
         xaxis=dict(gridcolor="#333"),
         yaxis=dict(gridcolor="#333"),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
-# --- Auto-play ---
-st.markdown("---")
-auto_play = st.checkbox("Auto-play animation (step forward each rerun)")
-if auto_play and st.session_state.step_idx < total_steps - 1:
-    st.session_state.step_idx += 1
-    st.rerun()
+

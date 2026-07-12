@@ -82,7 +82,7 @@ fig_gate.update_layout(
     xaxis=dict(gridcolor="#333"),
     yaxis=dict(gridcolor="#333"),
 )
-st.plotly_chart(fig_gate, use_container_width=True)
+st.plotly_chart(fig_gate, width="stretch")
 
 # --- Distribution comparison across steps ---
 st.markdown("#### How Self-Conditioning Sharpens Distributions")
@@ -128,7 +128,7 @@ with col_chart_a:
         xaxis=dict(gridcolor="#333"),
         yaxis=dict(gridcolor="#333"),
     )
-    st.plotly_chart(fig_a, use_container_width=True)
+    st.plotly_chart(fig_a, width="stretch")
 
 with col_chart_b:
     fig_b = go.Figure()
@@ -150,7 +150,7 @@ with col_chart_b:
         xaxis=dict(gridcolor="#333"),
         yaxis=dict(gridcolor="#333"),
     )
-    st.plotly_chart(fig_b, use_container_width=True)
+    st.plotly_chart(fig_b, width="stretch")
 
 # --- Entropy reduction over steps ---
 st.markdown("---")
@@ -178,7 +178,7 @@ fig_ent.update_layout(
     xaxis=dict(gridcolor="#333"),
     yaxis=dict(gridcolor="#333"),
 )
-st.plotly_chart(fig_ent, use_container_width=True)
+st.plotly_chart(fig_ent, width="stretch")
 
 # --- Explanation ---
 with st.expander("How does self-conditioning work?"):

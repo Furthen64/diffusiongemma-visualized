@@ -60,7 +60,7 @@ if view == "Single Mask":
 
     st.plotly_chart(
         attention_mask_heatmap(mask, title=title),
-        use_container_width=True,
+        width="stretch",
     )
 
     attended = [k for k in range(seq_len) if not mask[query_pos, k]]
@@ -96,7 +96,7 @@ if view == "Single Mask":
         font=dict(color=COLORS["text"]),
         xaxis=dict(gridcolor="#333", dtick=1),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     st.markdown(f"**{desc}**")
 
@@ -126,7 +126,7 @@ elif view == "Batch Mixing":
                 m = bidirectional_mask(req["len"])
             st.plotly_chart(
                 attention_mask_heatmap(m, title=req["name"]),
-                use_container_width=True,
+                width="stretch",
             )
 
     # Combined block-diagonal view
@@ -176,7 +176,7 @@ elif view == "Batch Mixing":
         xaxis=dict(gridcolor="#333", dtick=1),
         yaxis=dict(gridcolor="#333", dtick=1, autorange="reversed"),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # Legend
     legend = " ".join(
@@ -220,7 +220,7 @@ elif view == "Sliding Window":
     with col_mask:
         st.plotly_chart(
             attention_mask_heatmap(mask, title=title),
-            use_container_width=True,
+            width="stretch",
         )
 
     with col_detail:
@@ -254,7 +254,7 @@ elif view == "Sliding Window":
             font=dict(color=COLORS["text"]),
             xaxis=dict(gridcolor="#333", dtick=1),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
         st.markdown(
             f"Query {query} attends to keys: `{attended}` — "

@@ -53,13 +53,13 @@ with left:
             accepted=snapshot.accepted_mask,
             title="Entropy per Position (sorted by index)",
         ),
-        use_container_width=True,
+        width="stretch",
     )
 
 with right:
     st.plotly_chart(
         acceptance_curve(snapshot.entropy, entropy_budget),
-        use_container_width=True,
+        width="stretch",
     )
 
 # --- Before / After grid ---

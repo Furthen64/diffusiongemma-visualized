@@ -67,7 +67,7 @@ with left:
 
     st.plotly_chart(
         attention_mask_heatmap(mask, title=title),
-        use_container_width=True,
+        width="stretch",
     )
 
 with right:

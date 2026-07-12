@@ -76,13 +76,13 @@ for b in range(num_blocks):
 # --- Timeline ---
 st.plotly_chart(
     timeline_gantt(phases),
-    use_container_width=True,
+    width="stretch",
 )
 
 # --- KV Cache ---
 st.plotly_chart(
     kv_cache_bar(kv_committed, total_kv),
-    use_container_width=True,
+    width="stretch",
 )
 
 # --- Block detail ---
@@ -129,7 +129,7 @@ if all_blocks:
             xaxis=dict(gridcolor="#333"),
             yaxis=dict(gridcolor="#333", range=[0, tokens_per_block]),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with col_grid:
         # Show first, middle, and last step
