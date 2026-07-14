@@ -16,11 +16,14 @@ st.markdown("""
 .prompt-box {background:#10182e;border:1px solid #3b4b70;border-radius:12px;padding:1rem 1.2rem;font:1.05rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .blank {color:#ffbd59;font-weight:700;border-bottom:2px solid #ffbd59;padding:0 .25rem}
 .canvas {display:flex;flex-wrap:wrap;gap:3px;line-height:1.25;margin:.4rem 0 1rem}
+.canvas.compact {gap:2px;line-height:1.1;margin:.35rem 0 .2rem}
 .token {font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.72rem;padding:3px 5px;border-radius:4px;background:#26304b;color:#dce5fa;border:1px solid transparent}
+.canvas.compact .token {font-size:.57rem;padding:2px 3px}
 .token.accepted {background:#153d32;border-color:#2ecc71;color:#baf5d5}
 .token.rejected {background:#40232c;border-color:#e76b78;color:#ffd2d7}
 .token.correct {background:#193b42;border-color:#34b9ca;color:#c7f8ff}
 .token.noise {color:#77829c}
+.token.neutral {background:#1b2740;color:#91a2c3;border-color:#2c4068}
 .legend-dot {display:inline-block;width:.65rem;height:.65rem;border-radius:2px;margin-right:.25rem}
 .output-card {background:linear-gradient(135deg,#14233d,#10182e);border:1px solid #3b5a82;border-left:5px solid #34b9ca;border-radius:12px;padding:1.1rem 1.3rem;margin:.65rem 0 1rem}
 .output-card.committed {border-color:#2ecc71;border-left-color:#2ecc71;background:linear-gradient(135deg,#15332d,#101d25)}
@@ -36,6 +39,27 @@ st.markdown("""
 .confidence-legend {display:flex;align-items:center;gap:.5rem;color:#8fa9ca;font:700 .7rem ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:.65rem}
 .confidence-ramp {width:9rem;height:.45rem;border-radius:999px;background:linear-gradient(90deg,hsl(0 72% 50%),hsl(60 72% 48%),hsl(120 62% 43%))}
 .output-empty {color:#8fa9ca;font-style:italic}
+.nav-shell {background:linear-gradient(135deg,#14233d,#0f172a);border:1px solid #35507b;border-radius:18px;padding:1rem 1rem .85rem;margin:.8rem 0 1rem;box-shadow:0 16px 36px rgba(3,8,20,.22)}
+.nav-topline {display:flex;justify-content:space-between;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:.75rem}
+.nav-kicker {color:#8fa9ca;font:800 .72rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase}
+.nav-status {display:inline-flex;align-items:center;gap:.45rem;padding:.3rem .7rem;border-radius:999px;background:#34b9ca1c;border:1px solid #34b9ca55;color:#d9f7fb;font:800 .78rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.nav-status strong {font-size:.92rem;color:#ffffff}
+.nav-rail {display:grid;grid-template-columns:auto 1fr auto;gap:.65rem;align-items:center}
+.nav-stop {display:inline-flex;align-items:center;gap:.45rem;font:700 .74rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#8fa9ca;white-space:nowrap}
+.nav-dot {width:.55rem;height:.55rem;border-radius:999px;background:#34b9ca;box-shadow:0 0 0 4px #34b9ca18}
+.nav-dot.commit {background:#2ecc71;box-shadow:0 0 0 4px #2ecc7118}
+.pass-explainer {background:linear-gradient(180deg,#11192d,#0d1527);border:1px solid #263c61;border-radius:18px;padding:1rem 1rem .35rem;margin:.75rem 0 1rem}
+.pass-kicker {color:#8fa9ca;font:800 .72rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.25rem}
+.pass-title {color:#f2f6ff;font-size:1.1rem;font-weight:800;margin-bottom:.2rem}
+.pass-subtitle {color:#9cb0d1;font-size:.92rem;margin-bottom:.8rem}
+.stage-card {background:linear-gradient(180deg,#16213a,#10182b);border:1px solid #2f466e;border-radius:14px;padding:.85rem .9rem .7rem;margin-bottom:.8rem;min-height:100%}
+.stage-head {display:flex;justify-content:space-between;align-items:baseline;gap:.75rem;margin-bottom:.35rem}
+.stage-title {color:#f2f6ff;font:800 .95rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.stage-badge {display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .5rem;border-radius:999px;background:#1f314f;border:1px solid #35507b;color:#8fa9ca;font:800 .67rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.04em;text-transform:uppercase}
+.stage-body {color:#b7c7e3;font-size:.87rem;line-height:1.45}
+.stage-legend {color:#7e93b8;font:700 .68rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin-top:.2rem}
+.stage-arrow {color:#44648f;text-align:center;font-size:1.3rem;margin:-.2rem 0 .35rem}
+@media(max-width:900px){.nav-rail{grid-template-columns:1fr}.nav-stop{justify-content:center}}
 @media(max-width:700px){.token{font-size:.66rem}}
 </style>
 """, unsafe_allow_html=True)
@@ -55,7 +79,6 @@ st.markdown(
 
 def reset_scenario():
     st.session_state["canvas_tutorial_step"] = 0
-    st.session_state["canvas_tutorial_stage"] = "input"
 
 with st.sidebar:
     st.markdown("### Experiment")
@@ -105,57 +128,65 @@ def move_step(delta: int):
 
 def jump_to_commit():
     st.session_state[state_key] = num_steps
-    st.session_state["canvas_tutorial_stage"] = "self_condition"
 
-
-back, slider_col, forward, final = st.columns([1, 7, 1, 1.35], vertical_alignment="bottom")
-with back:
-    st.button(
-        "← Back", use_container_width=True, disabled=st.session_state[state_key] == 0,
-        on_click=move_step, args=(-1,),
-    )
-with slider_col:
-    st.slider("Step navigation", 0, num_steps, key=state_key)
-with forward:
-    st.button(
-        "Next →", use_container_width=True, disabled=st.session_state[state_key] == num_steps,
-        on_click=move_step, args=(1,),
-    )
-with final:
-    st.button("Jump to commit", use_container_width=True, on_click=jump_to_commit)
 
 step_number = st.session_state[state_key]
-stage_key = "canvas_tutorial_stage"
-stage_labels = {
-    "input": "1 · Canvas in",
-    "predict": "2 · Predict",
-    "sample": "3 · Sample",
-    "accept": "4 · Accept / re-noise",
-    "self_condition": "5 · Self-condition",
-}
-if stage_key not in st.session_state:
-    st.session_state[stage_key] = "input"
-
-st.markdown("**Stage inside this pass**")
-st.segmented_control(
-    "Stage inside this pass",
-    options=list(stage_labels),
-    format_func=stage_labels.get,
-    key=stage_key,
-    disabled=step_number == 0,
-    label_visibility="collapsed",
-    width="stretch",
+st.markdown(
+    (
+        '<div class="nav-shell">'
+        '<div class="nav-topline">'
+        '<div><div class="nav-kicker">Canvas pass navigator</div></div>'
+        f'<div class="nav-status"><span>Step</span><strong>{step_number}</strong><span>of {num_steps}</span></div>'
+        "</div>"
+        '<div class="nav-rail">'
+        '<div class="nav-stop"><span class="nav-dot"></span><span>Init noise</span></div>'
+        '<div class="nav-stop" style="justify-content:center"><span>Scrub the pass or step one move at a time.</span></div>'
+        '<div class="nav-stop" style="justify-content:flex-end"><span class="nav-dot commit"></span><span>Commit view</span></div>'
+        "</div>"
+        "</div>"
+    ),
+    unsafe_allow_html=True,
 )
-selected_stage = st.session_state[stage_key]
+back, slider_col, forward, final = st.columns([1.2, 5.8, 1.2, 1.8], vertical_alignment="center")
+with back:
+    st.button(
+        "← Back",
+        use_container_width=True,
+        disabled=st.session_state[state_key] == 0,
+        on_click=move_step,
+        args=(-1,),
+    )
+with slider_col:
+    st.slider("Pass navigation", 0, num_steps, key=state_key, label_visibility="collapsed")
+with forward:
+    st.button(
+        "Next →",
+        use_container_width=True,
+        disabled=st.session_state[state_key] == num_steps,
+        on_click=move_step,
+        args=(1,),
+    )
+with final:
+    st.button("Commit view ↗", use_container_width=True, on_click=jump_to_commit)
+
+step_number = st.session_state[state_key]
+stage_labels = {
+    "input": "Canvas in",
+    "predict": "Predict",
+    "sample": "Sample",
+    "accept": "Accept / re-noise",
+    "self_condition": "Self-condition",
+}
 
 
-def render_tokens(tokens, classes=None, limit=256):
+def render_tokens(tokens, classes=None, limit=256, compact=False):
     chunks = []
     for index, token in enumerate(tokens[:limit]):
         extra = "" if classes is None else f" {classes[index]}"
         title = html.escape(f"position {index}")
         chunks.append(f'<span class="token{extra}" title="{title}">{html.escape(token)}</span>')
-    return '<div class="canvas">' + "".join(chunks) + "</div>"
+    canvas_class = "canvas compact" if compact else "canvas"
+    return f'<div class="{canvas_class}">' + "".join(chunks) + "</div>"
 
 
 def render_readable_output(tokens, entropy, committed=False):
@@ -200,6 +231,21 @@ def render_readable_output(tokens, entropy, committed=False):
     )
 
 
+def render_stage_card(number: int, label: str, description: str, tokens, classes, legend: str):
+    badge = f"Stage {number}"
+    return (
+        '<div class="stage-card">'
+        '<div class="stage-head">'
+        f'<div class="stage-title">{number}. {html.escape(label)}</div>'
+        f'<div class="stage-badge">{badge}</div>'
+        '</div>'
+        f'<div class="stage-body">{description}</div>'
+        f'{render_tokens(tokens, classes=classes, compact=True)}'
+        f'<div class="stage-legend">{legend}</div>'
+        '</div>'
+    )
+
+
 if step_number == 0:
     st.subheader("Step 0 · Initialize with noise")
     st.caption("The prompt is cached; the internal canvas starts as random tokens.")
@@ -212,7 +258,7 @@ if step_number == 0:
 else:
     snap = run.steps[step_number - 1]
     is_final = step_number == num_steps
-    st.subheader(f"Pass {step_number} of {num_steps} · {stage_labels[selected_stage]}")
+    st.subheader(f"Pass {step_number} of {num_steps} · Live canvas state")
     if is_final:
         st.success("Generation complete · clean argmax committed")
     st.markdown(
@@ -244,66 +290,101 @@ else:
             f"{snap.self_conditioning:.2f}",
             label_visibility="collapsed",
         )
+    predict_classes = [
+        "correct" if token == target else "rejected"
+        for token, target in zip(snap.argmax_tokens, run.target)
+    ]
+    sample_classes = [
+        "accepted" if sample == target else "neutral"
+        for sample, target in zip(snap.sampled_tokens, run.target)
+    ]
+    output_classes = ["accepted" if kept else "rejected" for kept in snap.accepted]
 
-    if selected_stage == "input":
+    st.markdown(
+        (
+            '<div class="pass-explainer">'
+            '<div class="pass-kicker">How this pass transforms the full canvas</div>'
+            '<div class="pass-title">Every scrubbed step now shows the whole pipeline at once</div>'
+            '<div class="pass-subtitle">Read left-to-right as one denoising pass: the model sees the noisy block, proposes a clean guess, samples candidates, then commits only the confident positions.</div>'
+            '</div>'
+        ),
+        unsafe_allow_html=True,
+    )
+    col1, col2 = st.columns(2)
+    with col1:
         st.markdown(
-            f"**{glossary_link('Canvas', 'Canvas')} entering this pass** · "
-            f"{glossary_link('Bidirectional attention', 'Bidirectional attention')} "
-            "reads all positions together.",
+            render_stage_card(
+                1,
+                stage_labels["input"],
+                (
+                    f"Incoming {glossary_link('canvas', 'Canvas')} for this pass. "
+                    f"{glossary_link('Bidirectional attention', 'Bidirectional attention')} reads all 256 positions together."
+                ),
+                snap.input_canvas,
+                ["noise"] * 256,
+                "Gray-blue tokens are still noisy positions entering the pass.",
+            ),
             unsafe_allow_html=True,
         )
-        st.markdown(render_tokens(snap.input_canvas, ["noise"] * 256), unsafe_allow_html=True)
-
-    elif selected_stage == "predict":
+        st.markdown('<div class="stage-arrow">↓</div>', unsafe_allow_html=True)
         st.markdown(
-            f"**{glossary_link('Argmax prediction', 'Argmax')}** · "
-            "cyan matches the scripted target; red does not.",
+            render_stage_card(
+                3,
+                stage_labels["sample"],
+                (
+                    f"One {glossary_link('Gumbel-max', 'Gumbel-max sampling')} draw per position. "
+                    "This injects variation before the acceptance filter decides what survives."
+                ),
+                snap.sampled_tokens,
+                sample_classes,
+                "Green sampled tokens happen to match the scripted target; muted tokens are alternative draws.",
+            ),
             unsafe_allow_html=True,
         )
-        classes = [
-            "correct" if token == target else "rejected"
-            for token, target in zip(snap.argmax_tokens, run.target)
-        ]
-        st.markdown(render_tokens(snap.argmax_tokens, classes), unsafe_allow_html=True)
-
-    elif selected_stage == "sample":
+    with col2:
         st.markdown(
-            f"**Sampled candidates** · one {glossary_link('Gumbel-max', 'Gumbel-max sampling')} "
-            "draw per position.",
+            render_stage_card(
+                2,
+                stage_labels["predict"],
+                (
+                    f"Parallel {glossary_link('Argmax prediction', 'Argmax')} over the whole block. "
+                    "Cyan is already aligned with the target continuation; red is still wrong."
+                ),
+                snap.argmax_tokens,
+                predict_classes,
+                "Cyan means the model's best guess is right at that position.",
+            ),
             unsafe_allow_html=True,
         )
-        st.markdown(render_tokens(snap.sampled_tokens, ["noise"] * 256), unsafe_allow_html=True)
-
-    elif selected_stage == "accept":
+        st.markdown('<div class="stage-arrow">↓</div>', unsafe_allow_html=True)
         st.markdown(
-            f"**Next {glossary_link('canvas', 'Canvas')}** · green candidates are "
-            "kept; red positions are re-noised.",
+            render_stage_card(
+                4,
+                stage_labels["accept"],
+                (
+                    f"Green positions are accepted into the next {glossary_link('canvas', 'Canvas')}; "
+                    "red positions get re-noised and must be solved again next pass."
+                ),
+                snap.output_canvas,
+                output_classes,
+                "Green survived the entropy budget. Red was reset for another denoising round.",
+            ),
             unsafe_allow_html=True,
         )
-        classes = ["accepted" if kept else "rejected" for kept in snap.accepted]
-        st.markdown(render_tokens(snap.output_canvas, classes), unsafe_allow_html=True)
-        order = np.argsort(snap.entropy)
-        colors = [COLORS["accepted"] if snap.accepted[index] else COLORS["rejected"] for index in order]
-        fig = go.Figure(go.Bar(x=np.arange(256), y=snap.entropy[order], marker_color=colors, hovertemplate="rank %{x}<br>entropy %{y:.3f}<extra></extra>"))
-        fig.update_layout(height=320, title="Positions ranked from most to least confident", xaxis_title="Confidence rank", yaxis_title="Entropy (nats)", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=COLORS["text"], margin=dict(l=40, r=20, t=50, b=40))
-        st.plotly_chart(fig, width="stretch")
 
-    else:
-        st.markdown(
-            f"**Soft feedback** · the full prediction distribution conditions the "
-            f"next pass through {glossary_link('self-conditioning', 'Self-conditioning')}.",
+    order = np.argsort(snap.entropy)
+    colors = [COLORS["accepted"] if snap.accepted[index] else COLORS["rejected"] for index in order]
+    fig = go.Figure(go.Bar(x=np.arange(256), y=snap.entropy[order], marker_color=colors, hovertemplate="rank %{x}<br>entropy %{y:.3f}<extra></extra>"))
+    fig.update_layout(height=320, title="Acceptance frontier: positions ranked from most to least confident", xaxis_title="Confidence rank", yaxis_title="Entropy (nats)", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=COLORS["text"], margin=dict(l=40, r=20, t=50, b=40))
+    st.plotly_chart(fig, width="stretch")
+    st.progress(
+        snap.self_conditioning,
+        text=f"Self-conditioning feedback carried into the next pass: {snap.self_conditioning:.2f} / 0.80",
+    )
+    if is_final:
+        st.caption(
+            f"Final encoder pass writes the block to the {glossary_link('KV cache', 'KV cache')}.",
             unsafe_allow_html=True,
         )
-        classes = ["accepted" if kept else "rejected" for kept in snap.accepted]
-        st.markdown(render_tokens(snap.output_canvas, classes), unsafe_allow_html=True)
-        st.progress(
-            snap.self_conditioning,
-            text=f"Self-conditioning gate: {snap.self_conditioning:.2f} / 0.80",
-        )
-        if is_final:
-            st.caption(
-                f"Final encoder pass writes the block to the {glossary_link('KV cache', 'KV cache')}.",
-                unsafe_allow_html=True,
-            )
 
 st.caption("Tutorial simulation: the algorithm mirrors DiffusionGemma, while the story probabilities are scripted.")
