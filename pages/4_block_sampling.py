@@ -2,7 +2,8 @@ import streamlit as st
 import numpy as np
 
 from utils.glossary import glossary_link
-from utils.styles import inject_styles, COLORS
+from utils.navigation import render_learning_path
+from utils.styles import inject_styles, COLORS, render_description
 from utils.diffusion_sim import DiffusionSim
 from utils.plot_helpers import timeline_gantt, kv_cache_bar
 
@@ -10,21 +11,27 @@ st.set_page_config(page_title="Block Sampling Loop", page_icon="🔗", layout="w
 inject_styles()
 
 st.title("🔗 Block Sampling Loop")
-st.markdown(
-    "DiffusionGemma generates text in 256-token blocks.  Each block goes through "
-    "Prefill → Denoise (multiple steps) → Commit, then the next block starts.  "
-    "This combines parallel block speed with sequential autoregressive stability."
+render_description(
+    """
+    This page zooms out from one denoising pass to the full generation loop.
+    DiffusionGemma works block by block: prefill existing context, denoise the
+    current block for several steps, commit the finished block, then repeat.
+
+    Use the timeline to see the phase order. The block detail cards show how
+    each block converges before it is appended to the running text and added to
+    the KV cache for future blocks.
+    """,
+    references=(
+        f"{glossary_link('Block sampling', 'Block sampling')} · "
+        f"{glossary_link('Prefill', 'Prefill')} · "
+        f"{glossary_link('Denoising', 'Denoising')} · "
+        f"{glossary_link('Commit', 'Commit')} · "
+        f"{glossary_link('KV cache', 'KV cache')} · "
+        f"{glossary_link('Convergence', 'Convergence')} · "
+        f"{glossary_link('Argmax', 'Argmax')}"
+    ),
 )
-st.markdown(
-    f"Reference: {glossary_link('Block sampling', 'Block sampling')} · "
-    f"{glossary_link('Prefill', 'Prefill')} · "
-    f"{glossary_link('Denoising', 'Denoising')} · "
-    f"{glossary_link('Commit', 'Commit')} · "
-    f"{glossary_link('KV cache', 'KV cache')} · "
-    f"{glossary_link('Convergence', 'Convergence')} · "
-    f"{glossary_link('Argmax', 'Argmax')}",
-    unsafe_allow_html=True,
-)
+render_learning_path("pages/4_block_sampling.py")
 
 # --- Sidebar ---
 st.sidebar.markdown("### Controls")

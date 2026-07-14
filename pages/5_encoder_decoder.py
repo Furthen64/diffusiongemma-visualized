@@ -2,7 +2,8 @@ import streamlit as st
 import numpy as np
 
 from utils.glossary import glossary_href, glossary_link
-from utils.styles import inject_styles, COLORS
+from utils.navigation import render_learning_path
+from utils.styles import inject_styles, COLORS, render_description
 from utils.diffusion_sim import causal_mask, bidirectional_mask
 from utils.plot_helpers import attention_mask_heatmap
 
@@ -10,21 +11,28 @@ st.set_page_config(page_title="Encoder / Decoder Modes", page_icon="⚡", layout
 inject_styles()
 
 st.title("⚡ Encoder / Decoder Modes")
-st.markdown(
-    "DiffusionGemma runs a single Gemma4 backbone in two modes that share the "
-    "same weights — one set of layers, used two ways."
+render_description(
+    """
+    This page shows how one Gemma-style backbone can behave in two different
+    ways. Encoder mode uses causal attention for prompt/committed text; decoder
+    mode uses bidirectional attention while refining the current noisy canvas.
+
+    Toggle the mode first, then compare the attention mask and KV cache state.
+    The important idea is that the weights stay shared while the attention mask
+    and cache behavior change by phase.
+    """,
+    references=(
+        f"{glossary_link('Encoder / decoder modes', 'Encoder / decoder modes')} · "
+        f"{glossary_link('Causal attention', 'Causal attention')} · "
+        f"{glossary_link('Bidirectional attention', 'Bidirectional attention')} · "
+        f"{glossary_link('KV cache', 'KV cache')} · "
+        f"{glossary_link('Self-conditioning', 'Self-conditioning')} · "
+        f"{glossary_link('Transformer layer', 'Transformer layer')} · "
+        f"{glossary_link('MoE', 'MoE')} · "
+        f"{glossary_link('FFN', 'FFN')}"
+    ),
 )
-st.markdown(
-    f"Reference: {glossary_link('Encoder / decoder modes', 'Encoder / decoder modes')} · "
-    f"{glossary_link('Causal attention', 'Causal attention')} · "
-    f"{glossary_link('Bidirectional attention', 'Bidirectional attention')} · "
-    f"{glossary_link('KV cache', 'KV cache')} · "
-    f"{glossary_link('Self-conditioning', 'Self-conditioning')} · "
-    f"{glossary_link('Transformer layer', 'Transformer layer')} · "
-    f"{glossary_link('MoE', 'MoE')} · "
-    f"{glossary_link('FFN', 'FFN')}",
-    unsafe_allow_html=True,
-)
+render_learning_path("pages/5_encoder_decoder.py")
 
 # --- Sidebar ---
 st.sidebar.markdown("### Controls")

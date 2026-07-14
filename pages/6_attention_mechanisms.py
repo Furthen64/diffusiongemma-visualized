@@ -3,7 +3,8 @@ import numpy as np
 import plotly.graph_objects as go
 
 from utils.glossary import glossary_link
-from utils.styles import inject_styles, COLORS
+from utils.navigation import render_learning_path
+from utils.styles import inject_styles, COLORS, render_description
 from utils.diffusion_sim import (
     causal_mask,
     bidirectional_mask,
@@ -15,21 +16,27 @@ st.set_page_config(page_title="Attention Mechanisms", page_icon="🔍", layout="
 inject_styles()
 
 st.title("🔍 Attention Mechanisms")
-st.markdown(
-    "DiffusionGemma uses three attention patterns: **causal** (encoder), "
-    "**bidirectional** (decoder), and **sliding window** (for efficiency). "
-    "In a batch, each request can be at a different phase with its own mask."
+render_description(
+    """
+    This page focuses only on attention masks: which positions are allowed to
+    read which other positions. DiffusionGemma switches between causal,
+    bidirectional, and sliding-window patterns depending on the current phase.
+
+    Start with Single Mask if you want the simplest view. Batch Mixing shows why
+    different requests in the same batch may need different masks, and Sliding
+    Window shows the local-attention variant used to reduce compute.
+    """,
+    references=(
+        f"{glossary_link('Causal attention', 'Causal attention')} · "
+        f"{glossary_link('Bidirectional attention', 'Bidirectional attention')} · "
+        f"{glossary_link('Sliding window attention', 'Sliding window attention')} · "
+        f"{glossary_link('Prefill', 'Prefill')} · "
+        f"{glossary_link('Commit', 'Commit')} · "
+        f"{glossary_link('Attention mask', 'Attention mask')} · "
+        f"{glossary_link('Query / key', 'Query / key')}"
+    ),
 )
-st.markdown(
-    f"Reference: {glossary_link('Causal attention', 'Causal attention')} · "
-    f"{glossary_link('Bidirectional attention', 'Bidirectional attention')} · "
-    f"{glossary_link('Sliding window attention', 'Sliding window attention')} · "
-    f"{glossary_link('Prefill', 'Prefill')} · "
-    f"{glossary_link('Commit', 'Commit')} · "
-    f"{glossary_link('Attention mask', 'Attention mask')} · "
-    f"{glossary_link('Query / key', 'Query / key')}",
-    unsafe_allow_html=True,
-)
+render_learning_path("pages/6_attention_mechanisms.py")
 
 # --- Sidebar ---
 st.sidebar.markdown("### Controls")
@@ -45,7 +52,7 @@ if view == "Single Mask":
 
 elif view == "Batch Mixing":
     len0 = st.sidebar.slider("Request 0 length (Prefill)", 3, 10, 6)
-    len1 = st.sidebar.slider("Request 1 length (Denoise)", 3, 10, 6)
+    len1 = st.sidebar.slider("Request 1 context length (Denoise)", 3, 10, 6)
     len2 = st.sidebar.slider("Request 2 length (Commit)", 3, 10, 6)
     canvas1 = st.sidebar.slider("Request 1 canvas size", 3, 8, 4)
 
@@ -125,41 +132,52 @@ elif view == "Batch Mixing":
     )
     st.markdown(
         "Three requests in the same batch, each at a different phase with "
-        "its own attention pattern."
+        "its own attention pattern. The denoising request combines committed "
+        "context with a bidirectional canvas."
     )
 
+    def denoise_request_mask(context_len: int, canvas_len: int):
+        total_len = context_len + canvas_len
+        mask = np.ones((total_len, total_len), dtype=bool)
+        mask[:context_len, :context_len] = causal_mask(context_len)
+        mask[context_len:, :] = False
+        return mask
+
     reqs = [
-        {"name": "Request 0 — Prefill", "len": len0, "mode": "causal", "color": COLORS["encoder"]},
-        {"name": "Request 1 — Denoise", "len": len1, "mode": "bidirectional", "color": COLORS["decoder"]},
-        {"name": "Request 2 — Commit", "len": len2, "mode": "causal", "color": COLORS["encoder"]},
+        {
+            "name": "Request 0 — Prefill",
+            "mask": causal_mask(len0),
+            "color": COLORS["encoder"],
+        },
+        {
+            "name": "Request 1 — Denoise",
+            "mask": denoise_request_mask(len1, canvas1),
+            "color": COLORS["decoder"],
+        },
+        {
+            "name": "Request 2 — Commit",
+            "mask": causal_mask(len2),
+            "color": COLORS["encoder"],
+        },
     ]
 
     # Individual masks
     cols = st.columns(3)
     for i, (col, req) in enumerate(zip(cols, reqs)):
         with col:
-            if req["mode"] == "causal":
-                m = causal_mask(req["len"])
-            else:
-                m = bidirectional_mask(req["len"])
             st.plotly_chart(
-                attention_mask_heatmap(m, title=req["name"]),
+                attention_mask_heatmap(req["mask"], title=req["name"]),
                 width="stretch",
             )
 
     # Combined block-diagonal view
     st.markdown(f"#### Combined Batch {glossary_link('Mask', 'Attention mask')}", unsafe_allow_html=True)
-    total = sum(r["len"] for r in reqs)
+    total = sum(r["mask"].shape[0] for r in reqs)
     combined = np.ones((total, total), dtype=bool)
     offset = 0
-    block_colors = []
     for req in reqs:
-        L = req["len"]
-        if req["mode"] == "causal":
-            combined[offset:offset+L, offset:offset+L] = causal_mask(L)
-        else:
-            combined[offset:offset+L, offset:offset+L] = bidirectional_mask(L)
-        block_colors.append((offset, L, req["color"], req["name"]))
+        L = req["mask"].shape[0]
+        combined[offset:offset+L, offset:offset+L] = req["mask"]
         offset += L
 
     display = np.where(combined, 0.0, 1.0)
@@ -172,7 +190,7 @@ elif view == "Batch Mixing":
     # Add block boundaries
     offset = 0
     for req in reqs:
-        L = req["len"]
+        L = req["mask"].shape[0]
         fig.add_shape(
             type="rect",
             x0=offset, x1=offset+L,

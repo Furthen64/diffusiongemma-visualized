@@ -104,6 +104,36 @@ PAGE_CSS = """
         opacity: 1;
         visibility: visible;
     }
+    .description-reference {
+        margin-top: 0.85rem;
+        padding-top: 0.7rem;
+        border-top: 1px solid #334155;
+        color: #9ca3af;
+        font-size: 0.9rem;
+    }
+    .learning-path {
+        margin: 0.6rem 0 1.1rem;
+        padding: 0.8rem 0.95rem;
+        border: 1px solid #2d4268;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #111827, #10182e);
+    }
+    .learning-path-kicker {
+        color: #8fa9ca;
+        font: 800 0.72rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 0.25rem;
+    }
+    .learning-path-title {
+        color: #f2f6ff;
+        font-weight: 800;
+        margin-bottom: 0.15rem;
+    }
+    .learning-path-note {
+        color: #9cb0d1;
+        font-size: 0.9rem;
+    }
 </style>
 """
 
@@ -112,3 +142,15 @@ def inject_styles():
     import streamlit as st
 
     st.markdown(PAGE_CSS, unsafe_allow_html=True)
+
+
+def render_description(markdown: str, references: str | None = None, expanded: bool = False):
+    import streamlit as st
+
+    with st.expander("Description", expanded=expanded):
+        st.markdown(markdown.strip(), unsafe_allow_html=True)
+        if references:
+            st.markdown(
+                f'<div class="description-reference">Reference: {references}</div>',
+                unsafe_allow_html=True,
+            )

@@ -6,7 +6,8 @@ import streamlit as st
 
 from utils.canvas_tutorial import SCENARIOS, run_tutorial
 from utils.glossary import glossary_link
-from utils.styles import COLORS, inject_styles
+from utils.navigation import render_learning_path
+from utils.styles import COLORS, inject_styles, render_description
 
 
 st.set_page_config(page_title="Canvas Denoising", page_icon="🧊", layout="wide")
@@ -66,15 +67,26 @@ st.markdown("""
 
 st.title("🧊 Denoise a 256-token canvas")
 st.caption("Watch 256 positions become text in parallel.")
-st.markdown(
-    f"Reference: {glossary_link('Canvas', 'Canvas')} · "
-    f"{glossary_link('Denoising', 'Denoising')} · "
-    f"{glossary_link('Entropy-bound acceptance', 'Entropy-bound acceptance')} · "
-    f"{glossary_link('Self-conditioning', 'Self-conditioning')} · "
-    f"{glossary_link('Temperature', 'Temperature')} · "
-    f"{glossary_link('Gumbel-max sampling', 'Gumbel-max sampling')}",
-    unsafe_allow_html=True,
+render_description(
+    """
+    This page shows the core DiffusionGemma idea: a full 256-token canvas starts
+    noisy, then several denoising passes refine many positions in parallel.
+
+    Use the pass selector to move from initialization to final commit. The token
+    colors show which positions are still noisy, which ones are accepted, and how
+    confidence changes as the canvas stabilizes. The readable output card is the
+    best place to track the story-level effect of each pass.
+    """,
+    references=(
+        f"{glossary_link('Canvas', 'Canvas')} · "
+        f"{glossary_link('Denoising', 'Denoising')} · "
+        f"{glossary_link('Entropy-bound acceptance', 'Entropy-bound acceptance')} · "
+        f"{glossary_link('Self-conditioning', 'Self-conditioning')} · "
+        f"{glossary_link('Temperature', 'Temperature')} · "
+        f"{glossary_link('Gumbel-max sampling', 'Gumbel-max sampling')}"
+    ),
 )
+render_learning_path("pages/1_canvas_denoising.py")
 
 
 def reset_scenario():

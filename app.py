@@ -6,15 +6,25 @@ st.set_page_config(
     layout="wide",
 )
 
-from utils.styles import inject_styles, COLORS
+from utils.navigation import render_learning_path
+from utils.styles import inject_styles, render_description
 
 inject_styles()
 
 st.title("DiffusionGemma — Visualized")
-st.markdown(
-    "An interactive guide to understanding how **DiffusionGemma** works.  "
-    "Pick a concept below to start exploring."
+render_description(
+    """
+    This app is an interactive guide to the main ideas behind **DiffusionGemma**.
+    The pages are intentionally visual and data-heavy, so use this home page as
+    the map: start with canvas denoising, then follow the supporting mechanisms
+    in order.
+
+    Each page now includes a collapsed Description section near the top. Open it
+    when the charts feel disconnected from the model concept being illustrated.
+    """,
+    expanded=True,
 )
+render_learning_path()
 
 st.markdown("---")
 

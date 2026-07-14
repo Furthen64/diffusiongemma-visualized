@@ -1,17 +1,25 @@
 import streamlit as st
 
 from utils.glossary import slugify_term
-from utils.styles import inject_styles
+from utils.navigation import render_learning_path
+from utils.styles import inject_styles, render_description
 
 st.set_page_config(page_title="Terms Glossary", page_icon="📘", layout="wide")
 inject_styles()
 
 st.title("📘 Terms Glossary")
-st.markdown(
-    "Definitions for the core terms used across the DiffusionGemma visualizations. "
-    "Use this page as a reference when page names, charts, or controls introduce "
-    "unfamiliar concepts."
+render_description(
+    """
+    This page is the reference layer for the visualizations. It defines the core
+    terms used in page names, charts, controls, and hover labels.
+
+    If you arrive here from a glossary link, the matching term opens
+    automatically. Otherwise, scan the expanders for unfamiliar concepts before
+    returning to the graph-heavy pages.
+    """,
+    expanded=True,
 )
+render_learning_path("pages/7_terms_glossary.py")
 
 selected_term = st.query_params.get("term")
 

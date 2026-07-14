@@ -2,7 +2,8 @@ import streamlit as st
 import numpy as np
 
 from utils.glossary import glossary_link
-from utils.styles import inject_styles, COLORS
+from utils.navigation import render_learning_path
+from utils.styles import inject_styles, COLORS, render_description
 from utils.diffusion_sim import DiffusionSim
 from utils.plot_helpers import entropy_bar_chart, acceptance_curve
 
@@ -10,18 +11,25 @@ st.set_page_config(page_title="Entropy-Bound Acceptance", page_icon="📊", layo
 inject_styles()
 
 st.title("📊 Entropy-Bound Acceptance")
-st.markdown(
-    "Each denoising step produces a probability distribution over the vocabulary "
-    "for every position.  The model accepts positions from most to least confident "
-    "until accumulated entropy exceeds a fixed budget."
+render_description(
+    """
+    This page isolates the rule that decides which canvas positions are kept
+    after a denoising step. Every position has a token distribution; low entropy
+    means the model is confident, high entropy means it is uncertain.
+
+    Read the left chart as per-position uncertainty and the right chart as the
+    running budget. Positions are accepted from most confident to least confident
+    until the entropy budget is spent; everything else stays editable for later
+    denoising.
+    """,
+    references=(
+        f"{glossary_link('Entropy', 'Entropy')} · "
+        f"{glossary_link('Entropy-bound acceptance', 'Entropy-bound acceptance')} · "
+        f"{glossary_link('Denoising', 'Denoising')} · "
+        f"{glossary_link('Entropy budget', 'Entropy budget')}"
+    ),
 )
-st.markdown(
-    f"Reference: {glossary_link('Entropy', 'Entropy')} · "
-    f"{glossary_link('Entropy-bound acceptance', 'Entropy-bound acceptance')} · "
-    f"{glossary_link('Denoising', 'Denoising')} · "
-    f"{glossary_link('Entropy budget', 'Entropy budget')}",
-    unsafe_allow_html=True,
-)
+render_learning_path("pages/2_entropy_bound.py")
 
 # --- Sidebar ---
 st.sidebar.markdown("### Controls")

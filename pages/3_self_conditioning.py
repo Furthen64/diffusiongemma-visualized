@@ -3,27 +3,36 @@ import numpy as np
 import plotly.graph_objects as go
 
 from utils.glossary import glossary_href, glossary_link
-from utils.styles import inject_styles, COLORS
+from utils.navigation import render_learning_path
+from utils.styles import inject_styles, COLORS, render_description
 from utils.diffusion_sim import DiffusionSim
 
 st.set_page_config(page_title="Self-Conditioning", page_icon="🔄", layout="wide")
 inject_styles()
 
 st.title("🔄 Self-Conditioning")
-st.markdown(
-    "Between denoising steps, DiffusionGemma feeds its own previous softmax "
-    "distribution back as input — through a gated MLP — giving each step a "
-    "memory of what the model believed last time."
+render_description(
+    """
+    This page explains how a denoising step remembers what the previous step
+    believed. Instead of throwing away the last probability distribution,
+    DiffusionGemma converts it into a soft embedding and mixes it into the next
+    canvas input through a learned gate.
+
+    Follow the flow diagram from left to right first. Then use the gate and
+    entropy plots to see why self-conditioning reduces step-to-step thrashing:
+    later passes inherit a soft memory instead of restarting from only sampled
+    tokens.
+    """,
+    references=(
+        f"{glossary_link('Self-conditioning', 'Self-conditioning')} · "
+        f"{glossary_link('Softmax', 'Softmax')} · "
+        f"{glossary_link('Gated MLP', 'Gated MLP')} · "
+        f"{glossary_link('Self-conditioning gate', 'Self-conditioning gate')} · "
+        f"{glossary_link('Embedding', 'Embedding')} · "
+        f"{glossary_link('Probability-weighted average', 'Probability-weighted average')}"
+    ),
 )
-st.markdown(
-    f"Reference: {glossary_link('Self-conditioning', 'Self-conditioning')} · "
-    f"{glossary_link('Softmax', 'Softmax')} · "
-    f"{glossary_link('Gated MLP', 'Gated MLP')} · "
-    f"{glossary_link('Self-conditioning gate', 'Self-conditioning gate')} · "
-    f"{glossary_link('Embedding', 'Embedding')} · "
-    f"{glossary_link('Probability-weighted average', 'Probability-weighted average')}",
-    unsafe_allow_html=True,
-)
+render_learning_path("pages/3_self_conditioning.py")
 
 # --- Sidebar ---
 st.sidebar.markdown("### Controls")
