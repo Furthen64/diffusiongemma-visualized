@@ -1,0 +1,12 @@
+1. Parallelism and Generation Order in Masked Diffusion Language Models
+
+This is essentially a broader version of the DiffusionGemma investigation.
+
+It studies eight diffusion language models, up to 100B parameters, and measures:
+
+Which positions become final first.
+How many positions become final together.
+Kendall’s τ for generation order.
+How generation behavior changes between knowledge, reasoning and programming tasks.
+
+It even finds interesting cases such as Sudoku, where models tend to fill the easiest blanks first, rather than moving left-to-right. That is exactly the sort of “the whole canvas is available, so what order does the model choose?” question you are interested in.

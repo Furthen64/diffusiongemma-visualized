@@ -70,6 +70,16 @@ with col6:
     )
     st.caption("Causal, bidirectional, and sliding window attention \u2014 including per-sequence mixing in batches.")
 
+glossary_col, _ = st.columns([1, 2])
+
+with glossary_col:
+    st.page_link(
+        "pages/7_terms_glossary.py",
+        label="Terms Glossary",
+        icon="📘",
+    )
+    st.caption("Definitions for the core DiffusionGemma concepts used across all visualizations.")
+
 st.markdown("---")
 st.markdown(
     "Built to understand [DiffusionGemma](https://deepmind.google/models/gemma/diffusiongemma/) "

@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 
+from utils.glossary import glossary_link
 from utils.styles import inject_styles, COLORS
 from utils.diffusion_sim import (
     causal_mask,
@@ -18,6 +19,16 @@ st.markdown(
     "DiffusionGemma uses three attention patterns: **causal** (encoder), "
     "**bidirectional** (decoder), and **sliding window** (for efficiency). "
     "In a batch, each request can be at a different phase with its own mask."
+)
+st.markdown(
+    f"Reference: {glossary_link('Causal attention', 'Causal attention')} · "
+    f"{glossary_link('Bidirectional attention', 'Bidirectional attention')} · "
+    f"{glossary_link('Sliding window attention', 'Sliding window attention')} · "
+    f"{glossary_link('Prefill', 'Prefill')} · "
+    f"{glossary_link('Commit', 'Commit')} · "
+    f"{glossary_link('Attention mask', 'Attention mask')} · "
+    f"{glossary_link('Query / key', 'Query / key')}",
+    unsafe_allow_html=True,
 )
 
 # --- Sidebar ---
@@ -47,7 +58,7 @@ elif view == "Sliding Window":
 # View 1: Single Mask
 # ============================================================
 if view == "Single Mask":
-    st.markdown("#### Single Request Attention Mask")
+    st.markdown(f"#### Single Request {glossary_link('Attention Mask', 'Attention mask')}", unsafe_allow_html=True)
 
     if mask_type == "Causal":
         mask = causal_mask(seq_len)
@@ -98,13 +109,20 @@ if view == "Single Mask":
     )
     st.plotly_chart(fig, width="stretch")
 
-    st.markdown(f"**{desc}**")
+    st.markdown(
+        f"**{desc}** This describes which {glossary_link('keys', 'Query / key')} a "
+        f"{glossary_link('query', 'Query / key')} position can read.",
+        unsafe_allow_html=True,
+    )
 
 # ============================================================
 # View 2: Batch Mixing
 # ============================================================
 elif view == "Batch Mixing":
-    st.markdown("#### Per-Sequence Causal Attention in a Batch")
+    st.markdown(
+        f"#### Per-Sequence {glossary_link('Causal Attention', 'Causal attention')} in a Batch",
+        unsafe_allow_html=True,
+    )
     st.markdown(
         "Three requests in the same batch, each at a different phase with "
         "its own attention pattern."
@@ -130,7 +148,7 @@ elif view == "Batch Mixing":
             )
 
     # Combined block-diagonal view
-    st.markdown("#### Combined Batch Mask")
+    st.markdown(f"#### Combined Batch {glossary_link('Mask', 'Attention mask')}", unsafe_allow_html=True)
     total = sum(r["len"] for r in reqs)
     combined = np.ones((total, total), dtype=bool)
     offset = 0
@@ -189,7 +207,7 @@ elif view == "Batch Mixing":
 # View 3: Sliding Window
 # ============================================================
 elif view == "Sliding Window":
-    st.markdown("#### Sliding Window Attention")
+    st.markdown(f"#### {glossary_link('Sliding Window Attention', 'Sliding window attention')}", unsafe_allow_html=True)
 
     is_causal = mode.startswith("Causal")
 
@@ -224,7 +242,11 @@ elif view == "Sliding Window":
         )
 
     with col_detail:
-        st.markdown(f"**{desc}**")
+        st.markdown(
+            f"**{desc}** This is another {glossary_link('attention mask', 'Attention mask')} "
+            f"over {glossary_link('query / key', 'Query / key')} positions.",
+            unsafe_allow_html=True,
+        )
 
         # Zoomed view for one query
         query = min(seq_len // 2, seq_len - 1)
@@ -263,14 +285,15 @@ elif view == "Sliding Window":
 
 # --- Explanation ---
 with st.expander("How do these attention mechanisms relate?"):
-    st.markdown("""
-    DiffusionGemma uses attention masks dynamically per-request:
+    st.markdown(
+        f"""
+    DiffusionGemma uses {glossary_link('attention masks', 'Attention mask')} dynamically per-request:
 
-    - **Causal (full)**: Standard autoregressive mask. Upper triangle masked.
-      Used in encoder mode for prefill and commit.
+    - **Causal (full)**: Standard {glossary_link('autoregressive', 'Autoregressive')} mask. Upper triangle masked.
+      Used in encoder mode for {glossary_link('prefill', 'Prefill')} and {glossary_link('commit', 'Commit')}.
 
     - **Bidirectional (full)**: No masking. Every position attends to every other.
-      Used in decoder mode for denoising — this is what allows parallel refinement.
+      Used in decoder mode for {glossary_link('denoising', 'Denoising')} — this is what allows parallel refinement.
 
     - **Causal sliding window**: Only attends to the W positions before each query.
       Reduces compute for long sequences in some layers.
@@ -281,4 +304,6 @@ with st.expander("How do these attention mechanisms relate?"):
 
     In a batch, each request can be at a different phase (prefill/denoise/commit),
     so the attention mask must be dynamic per-sequence — not batch-wide.
-    """)
+    """,
+        unsafe_allow_html=True,
+    )

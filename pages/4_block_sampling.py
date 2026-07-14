@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 
+from utils.glossary import glossary_link
 from utils.styles import inject_styles, COLORS
 from utils.diffusion_sim import DiffusionSim
 from utils.plot_helpers import timeline_gantt, kv_cache_bar
@@ -13,6 +14,16 @@ st.markdown(
     "DiffusionGemma generates text in 256-token blocks.  Each block goes through "
     "Prefill → Denoise (multiple steps) → Commit, then the next block starts.  "
     "This combines parallel block speed with sequential autoregressive stability."
+)
+st.markdown(
+    f"Reference: {glossary_link('Block sampling', 'Block sampling')} · "
+    f"{glossary_link('Prefill', 'Prefill')} · "
+    f"{glossary_link('Denoising', 'Denoising')} · "
+    f"{glossary_link('Commit', 'Commit')} · "
+    f"{glossary_link('KV cache', 'KV cache')} · "
+    f"{glossary_link('Convergence', 'Convergence')} · "
+    f"{glossary_link('Argmax', 'Argmax')}",
+    unsafe_allow_html=True,
 )
 
 # --- Sidebar ---
@@ -100,9 +111,11 @@ if all_blocks:
     col_info, col_grid = st.columns([1, 2])
 
     with col_info:
-        st.metric("Denoising steps", len(block.steps))
+        st.markdown(glossary_link("Denoising steps", "Denoising"), unsafe_allow_html=True)
+        st.metric("Denoising steps value", len(block.steps), label_visibility="collapsed")
         converged = block.steps[-1].converged if block.steps else False
-        st.metric("Converged", "Yes" if converged else "No (hit step limit)")
+        st.markdown(glossary_link("Converged", "Convergence"), unsafe_allow_html=True)
+        st.metric("Converged value", "Yes" if converged else "No (hit step limit)", label_visibility="collapsed")
 
         # Acceptance over steps
         import plotly.graph_objects as go
@@ -192,14 +205,17 @@ st.markdown(html, unsafe_allow_html=True)
 
 # --- Explanation ---
 with st.expander("How does the block sampling loop work?"):
-    st.markdown("""
-    1. **Prefill**: The prompt is encoded with causal attention and written to the KV cache.
-    2. **Denoise**: A fresh 256-token canvas of random tokens is initialized. The model runs
-       multiple denoising steps with bidirectional attention, iteratively refining the canvas.
-    3. **Commit**: Once converged (or the step limit is hit), the clean argmax prediction is
+    st.markdown(
+        f"""
+    1. **{glossary_link('Prefill', 'Prefill')}**: The prompt is encoded with {glossary_link('causal attention', 'Causal attention')} and written to the {glossary_link('KV cache', 'KV cache')}.
+    2. **{glossary_link('Denoise', 'Denoising')}**: A fresh 256-token {glossary_link('canvas', 'Canvas')} of random tokens is initialized. The model runs
+       multiple denoising steps with {glossary_link('bidirectional attention', 'Bidirectional attention')}, iteratively refining the canvas.
+    3. **{glossary_link('Commit', 'Commit')}**: Once {glossary_link('converged', 'Convergence')} (or the step limit is hit), the clean {glossary_link('argmax', 'Argmax')} prediction is
        encoded with causal attention and appended to the KV cache.
     4. **Next block**: A fresh canvas is initialized conditioned on all previously committed
        tokens, and the process repeats.
-    5. Across blocks, generation is still left-to-right (autoregressive). Within each block,
+    5. Across blocks, generation is still left-to-right ({glossary_link('autoregressive', 'Autoregressive')}). Within each block,
        all 256 positions denoise in parallel (diffusion).
-    """)
+    """,
+        unsafe_allow_html=True,
+    )

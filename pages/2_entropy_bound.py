@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 
+from utils.glossary import glossary_link
 from utils.styles import inject_styles, COLORS
 from utils.diffusion_sim import DiffusionSim
 from utils.plot_helpers import entropy_bar_chart, acceptance_curve
@@ -13,6 +14,13 @@ st.markdown(
     "Each denoising step produces a probability distribution over the vocabulary "
     "for every position.  The model accepts positions from most to least confident "
     "until accumulated entropy exceeds a fixed budget."
+)
+st.markdown(
+    f"Reference: {glossary_link('Entropy', 'Entropy')} · "
+    f"{glossary_link('Entropy-bound acceptance', 'Entropy-bound acceptance')} · "
+    f"{glossary_link('Denoising', 'Denoising')} · "
+    f"{glossary_link('Entropy budget', 'Entropy budget')}",
+    unsafe_allow_html=True,
 )
 
 # --- Sidebar ---
@@ -38,8 +46,9 @@ snapshot = result.steps[min(step_num, len(result.steps) - 1)]
 n_accepted = int(np.sum(snapshot.accepted_mask))
 st.markdown(
     f"**Accepted: {n_accepted}/{num_positions}** positions  |  "
-    f"Accumulated entropy: **{snapshot.cumulative_entropy:.4f}**  |  "
-    f"Budget: **{entropy_budget:.4f}**"
+    f"{glossary_link('Accumulated entropy', 'Entropy')}: **{snapshot.cumulative_entropy:.4f}**  |  "
+    f"{glossary_link('Budget', 'Entropy budget')}: **{entropy_budget:.4f}**",
+    unsafe_allow_html=True,
 )
 
 # --- Main layout ---
@@ -85,7 +94,7 @@ def render_grid(tokens, accepted, highlight=False):
     return html
 
 with col_before:
-    st.markdown("**Current canvas**")
+    st.markdown(f"**Current {glossary_link('canvas', 'Canvas')}**", unsafe_allow_html=True)
     st.markdown(
         render_grid(sim.canvas_tokens(snapshot.canvas), None),
         unsafe_allow_html=True,
@@ -95,7 +104,10 @@ with col_arrow:
     st.markdown("<br><br><h2>→</h2>", unsafe_allow_html=True)
 
 with col_after:
-    st.markdown("**After accept/reject**")
+    st.markdown(
+        f"**After {glossary_link('accept/reject', 'Entropy-bound acceptance')}**",
+        unsafe_allow_html=True,
+    )
     new_canvas = sim._renoise(snapshot.canvas, snapshot.accepted_mask)
     st.markdown(
         render_grid(sim.canvas_tokens(new_canvas), snapshot.accepted_mask, highlight=True),
@@ -105,12 +117,15 @@ with col_after:
 # --- Explanation ---
 st.markdown("---")
 with st.expander("How does entropy-bound acceptance work?"):
-    st.markdown("""
-    1. The model predicts a probability distribution for each canvas position.
-    2. **Entropy** measures uncertainty — low entropy means the model is confident.
+    st.markdown(
+        f"""
+    1. The model predicts a probability distribution for each {glossary_link('canvas position', 'Canvas')}.
+    2. {glossary_link('Entropy', 'Entropy')} measures uncertainty — low entropy means the model is confident.
     3. Positions are sorted from most to least confident.
-    4. Positions are accepted one by one until the cumulative entropy exceeds the budget.
+    4. Positions are accepted one by one until the cumulative entropy exceeds the {glossary_link('budget', 'Entropy budget')}.
     5. Rejected positions are replaced with fresh random tokens for the next step.
     6. Over several steps, accepted positions provide context that helps neighboring
        positions become more confident, causing the block to "snap into focus."
-    """)
+    """,
+        unsafe_allow_html=True,
+    )

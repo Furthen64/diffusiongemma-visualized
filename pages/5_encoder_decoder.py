@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 
+from utils.glossary import glossary_href, glossary_link
 from utils.styles import inject_styles, COLORS
 from utils.diffusion_sim import causal_mask, bidirectional_mask
 from utils.plot_helpers import attention_mask_heatmap
@@ -12,6 +13,17 @@ st.title("⚡ Encoder / Decoder Modes")
 st.markdown(
     "DiffusionGemma runs a single Gemma4 backbone in two modes that share the "
     "same weights — one set of layers, used two ways."
+)
+st.markdown(
+    f"Reference: {glossary_link('Encoder / decoder modes', 'Encoder / decoder modes')} · "
+    f"{glossary_link('Causal attention', 'Causal attention')} · "
+    f"{glossary_link('Bidirectional attention', 'Bidirectional attention')} · "
+    f"{glossary_link('KV cache', 'KV cache')} · "
+    f"{glossary_link('Self-conditioning', 'Self-conditioning')} · "
+    f"{glossary_link('Transformer layer', 'Transformer layer')} · "
+    f"{glossary_link('MoE', 'MoE')} · "
+    f"{glossary_link('FFN', 'FFN')}",
+    unsafe_allow_html=True,
 )
 
 # --- Sidebar ---
@@ -34,7 +46,7 @@ if is_encoder:
       <span style="padding:12px 24px;border-radius:8px;background:#333;
                    color:#999;font-size:1.1rem;">Decoder (Bidirectional)</span>
     </div>
-    <p style="color:#999;">Uses <b>causal attention</b>. Writes to KV cache.
+    <p style="color:#999;">Uses <b><a href="{glossary_href('Causal attention')}" style="color:inherit;">causal attention</a></b>. Writes to <a href="{glossary_href('KV cache')}" style="color:inherit;">KV cache</a>.
        Runs during prefill and commit phases.</p>
     """
 else:
@@ -47,8 +59,8 @@ else:
                    color:#fff;font-weight:bold;font-size:1.1rem;
                    box-shadow:0 0 12px {COLORS["decoder"]}66;">Decoder (Bidirectional)</span>
     </div>
-    <p style="color:#999;">Uses <b>bidirectional attention</b>. Reads (but does not
-       update) the KV cache. Runs during the denoising phase.</p>
+    <p style="color:#999;">Uses <b><a href="{glossary_href('Bidirectional attention')}" style="color:inherit;">bidirectional attention</a></b>. Reads (but does not
+       update) the <a href="{glossary_href('KV cache')}" style="color:inherit;">KV cache</a>. Runs during the denoising phase.</p>
     """
 st.markdown(toggle_html, unsafe_allow_html=True)
 
@@ -74,20 +86,20 @@ with right:
     st.markdown("#### Forward Pass Walkthrough")
     if is_encoder:
         steps = [
-            ("1. Embed tokens", "Convert token IDs to dense vectors"),
-            ("2. Apply causal mask", "Each position attends only to itself and prior tokens"),
-            ("3. Run transformer layers", "30 layers of MoE attention + FFN"),
-            ("4. Write to KV cache", "Key/value pairs stored for future decoder passes"),
-            ("5. Output logits", "Predictions for next-step use (prefill) or commit"),
+            ("1. Embed tokens", f"Convert token IDs to dense {glossary_link('vectors', 'Embedding')}"),
+            ("2. Apply causal mask", f"Each position attends only to itself and prior tokens via an {glossary_link('attention mask', 'Attention mask')}"),
+            ("3. Run transformer layers", f"30 {glossary_link('transformer layers', 'Transformer layer')} of {glossary_link('MoE', 'MoE')} attention + {glossary_link('FFN', 'FFN')}"),
+            ("4. Write to KV cache", f"Key/value pairs stored in the {glossary_link('KV cache', 'KV cache')} for future decoder passes"),
+            ("5. Output logits", f"{glossary_link('Logits', 'Logits')} for next-step use (prefill) or commit"),
         ]
     else:
         steps = [
-            ("1. Embed canvas tokens", "Random/noised tokens from current canvas"),
-            ("2. Apply self-conditioning", "Add previous step's gated softmax signal"),
-            ("3. Apply bidirectional mask", "Every canvas token can attend to every other"),
-            ("4. Run transformer layers", "Same 30 layers, bidirectional attention mode"),
-            ("5. Read KV cache", "Attend to all previously committed context"),
-            ("6. Output logits", "New predictions for each canvas position"),
+            ("1. Embed canvas tokens", f"Random/noised tokens from the current {glossary_link('canvas', 'Canvas')}"),
+            ("2. Apply self-conditioning", f"Add the previous step's gated {glossary_link('softmax', 'Softmax')} signal"),
+            ("3. Apply bidirectional mask", f"Every canvas token can attend to every other through an {glossary_link('attention mask', 'Attention mask')}"),
+            ("4. Run transformer layers", f"Same 30 {glossary_link('transformer layers', 'Transformer layer')}, bidirectional attention mode"),
+            ("5. Read KV cache", f"Attend to all previously committed context in the {glossary_link('KV cache', 'KV cache')}"),
+            ("6. Output logits", f"New {glossary_link('logits', 'Logits')} for each canvas position"),
         ]
 
     for title, desc in steps:
@@ -156,17 +168,17 @@ if show_kv:
 
 # --- Explanation ---
 with st.expander("Why two modes?"):
-    st.markdown("""
+    st.markdown(f"""
     The same Gemma4 backbone runs in two modes sharing one set of weights:
 
-    - **Encoder mode (causal)**: Used during prefill (ingesting the prompt) and
-      commit (appending a finished block to the KV cache).  Causal attention means
-      each token only sees itself and prior tokens — standard autoregressive behavior.
+    - **Encoder mode (causal)**: Used during {glossary_link('prefill', 'Prefill')} (ingesting the prompt) and
+      {glossary_link('commit', 'Commit')} (appending a finished block to the {glossary_link('KV cache', 'KV cache')}).  {glossary_link('Causal attention', 'Causal attention')} means
+      each token only sees itself and prior tokens — standard {glossary_link('autoregressive', 'Autoregressive')} behavior.
 
-    - **Decoder mode (bidirectional)**: Used during denoising.  Every canvas token
+    - **Decoder mode (bidirectional)**: Used during {glossary_link('denoising', 'Denoising')}.  Every canvas token
       can attend to every other canvas token, enabling the model to refine the
       entire block in parallel and self-correct errors.
 
     This design lets DiffusionGemma reuse the same weights for both encoding and
     denoising, with only the attention mask changing between modes.
-    """)
+    """, unsafe_allow_html=True)

@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 
+from utils.glossary import glossary_href, glossary_link
 from utils.styles import inject_styles, COLORS
 from utils.diffusion_sim import DiffusionSim
 
@@ -13,6 +14,15 @@ st.markdown(
     "Between denoising steps, DiffusionGemma feeds its own previous softmax "
     "distribution back as input — through a gated MLP — giving each step a "
     "memory of what the model believed last time."
+)
+st.markdown(
+    f"Reference: {glossary_link('Self-conditioning', 'Self-conditioning')} · "
+    f"{glossary_link('Softmax', 'Softmax')} · "
+    f"{glossary_link('Gated MLP', 'Gated MLP')} · "
+    f"{glossary_link('Self-conditioning gate', 'Self-conditioning gate')} · "
+    f"{glossary_link('Embedding', 'Embedding')} · "
+    f"{glossary_link('Probability-weighted average', 'Probability-weighted average')}",
+    unsafe_allow_html=True,
 )
 
 # --- Sidebar ---
@@ -36,31 +46,31 @@ st.markdown("#### Self-Conditioning Flow")
 flow_html = """
 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:1rem 0;">
   <span class="flow-stage" style="background:#3498db22;border:1px solid #3498db;color:#3498db;">
-    Step N's Logits
+    <a href="{}" style="color:inherit;text-decoration:underline;">Step N's Logits</a>
     <span class="flow-help" tabindex="0" aria-label="About Step N Logits"
           data-tooltip="The model's raw, unnormalized score for every possible token at each canvas position.">?</span>
   </span>
   <span style="color:#666;">→</span>
   <span class="flow-stage" style="background:#e67e2222;border:1px solid #e67e22;color:#e67e22;">
-    Softmax
+    <a href="{}" style="color:inherit;text-decoration:underline;">Softmax</a>
     <span class="flow-help" tabindex="0" aria-label="About Softmax"
           data-tooltip="Converts the raw logits into probabilities that add up to 1 for each canvas position.">?</span>
   </span>
   <span style="color:#666;">→</span>
   <span class="flow-stage" style="background:#2ecc7122;border:1px solid #2ecc71;color:#2ecc71;">
-    Weighted Avg Embeddings
+    <a href="{}" style="color:inherit;text-decoration:underline;">Weighted Avg Embeddings</a>
     <span class="flow-help" tabindex="0" aria-label="About Weighted Average Embeddings"
           data-tooltip="Blends token embeddings using those probabilities. Likely tokens contribute more, preserving uncertainty instead of choosing one token early.">?</span>
   </span>
   <span style="color:#666;">→</span>
   <span class="flow-stage" style="background:#e74c3c22;border:1px solid #e74c3c;color:#e74c3c;">
-    Gated MLP (gate={:.2f})
+    <a href="{}" style="color:inherit;text-decoration:underline;">Gated MLP</a> (gate={:.2f})
     <span class="flow-help" tabindex="0" aria-label="About the Gated MLP"
           data-tooltip="Transforms the soft embedding. The gate controls how strongly the previous step can influence the next one; 0 means no influence.">?</span>
   </span>
   <span style="color:#666;">→</span>
   <span class="flow-stage" style="background:#ecf0f1;border:1px solid #95a5a6;color:#333;">
-    + Canvas Embeddings
+    + <a href="{}" style="color:inherit;text-decoration:underline;">Canvas Embeddings</a>
     <span class="flow-help" tabindex="0" aria-label="About Canvas Embeddings"
           data-tooltip="Adds the transformed memory from Step N to the embeddings of the current noisy canvas.">?</span>
   </span>
@@ -71,7 +81,14 @@ flow_html = """
           data-tooltip="The next denoising step now receives both the current canvas and a soft memory of the previous prediction.">?</span>
   </span>
 </div>
-""".format(result.steps[-1].self_cond_gate if result.steps else 0)
+""".format(
+    glossary_href("Logits"),
+    glossary_href("Softmax"),
+    glossary_href("Probability-weighted average"),
+    glossary_href("Gated MLP"),
+    result.steps[-1].self_cond_gate if result.steps else 0,
+    glossary_href("Embedding"),
+)
 st.markdown(flow_html, unsafe_allow_html=True)
 
 # --- Gate value over steps ---
@@ -231,11 +248,14 @@ st.plotly_chart(fig_ent, width="stretch")
 
 # --- Explanation ---
 with st.expander("How does self-conditioning work?"):
-    st.markdown("""
-    1. After each denoising step, the model takes the **softmax distribution** (not the hard tokens).
-    2. It computes a **probability-weighted average** of token embeddings — a soft representation.
-    3. This is passed through a small **gated MLP** whose gate starts at 0 and increases over steps.
-    4. The output is **added to the canvas embeddings** before the next forward pass.
+    st.markdown(
+        f"""
+    1. After each denoising step, the model takes the {glossary_link('softmax distribution', 'Softmax')} (not the hard tokens).
+    2. It computes a {glossary_link('probability-weighted average', 'Probability-weighted average')} of token {glossary_link('embeddings', 'Embedding')} — a soft representation.
+    3. This is passed through a small {glossary_link('gated MLP', 'Gated MLP')} whose gate starts at 0 and increases over steps.
+    4. The output is added to the canvas embeddings before the next forward pass.
     5. This gives each step a "memory" of what the model believed previously, even for positions
        that were re-noised to random tokens.
-    """)
+    """,
+        unsafe_allow_html=True,
+    )

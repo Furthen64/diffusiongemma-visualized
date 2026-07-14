@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils.canvas_tutorial import SCENARIOS, run_tutorial
+from utils.glossary import glossary_link
 from utils.styles import COLORS, inject_styles
 
 
@@ -41,6 +42,15 @@ st.markdown("""
 
 st.title("🧊 Denoise a 256-token canvas")
 st.caption("Watch 256 positions become text in parallel.")
+st.markdown(
+    f"Reference: {glossary_link('Canvas', 'Canvas')} · "
+    f"{glossary_link('Denoising', 'Denoising')} · "
+    f"{glossary_link('Entropy-bound acceptance', 'Entropy-bound acceptance')} · "
+    f"{glossary_link('Self-conditioning', 'Self-conditioning')} · "
+    f"{glossary_link('Temperature', 'Temperature')} · "
+    f"{glossary_link('Gumbel-max sampling', 'Gumbel-max sampling')}",
+    unsafe_allow_html=True,
+)
 
 
 def reset_scenario():
@@ -59,7 +69,10 @@ with st.sidebar:
     entropy_budget = st.slider("Entropy budget (nats)", 8.0, 80.0, 32.0, 2.0)
     temperature = st.slider("Sampling temperature", 0.4, 1.8, 1.0, 0.1)
     seed = st.number_input("Random seed", value=7, step=1)
-    st.caption("Simulated logits; real 256-position block size.")
+    st.caption(
+        f"Simulated {glossary_link('logits', 'Logits')}; real 256-position block size.",
+        unsafe_allow_html=True,
+    )
 
 scenario = SCENARIOS[scenario_id]
 st.markdown(
@@ -209,16 +222,44 @@ else:
     accepted_pct = snap.accepted_count / 256
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Accepted this pass", f"{snap.accepted_count} / 256", f"{accepted_pct:.0%}")
-    m2.metric("Entropy used", f"{snap.budget_used:.1f}", f"of {entropy_budget:.0f} nats")
-    m3.metric("Argmax changes", snap.changed_from_previous)
-    m4.metric("Self-conditioning gate", f"{snap.self_conditioning:.2f}")
+    with m2:
+        st.markdown(glossary_link("Entropy used", "Entropy budget"), unsafe_allow_html=True)
+        st.metric(
+            "Entropy used value",
+            f"{snap.budget_used:.1f}",
+            f"of {entropy_budget:.0f} nats",
+            label_visibility="collapsed",
+        )
+    with m3:
+        st.markdown(glossary_link("Argmax changes", "Argmax"), unsafe_allow_html=True)
+        st.metric(
+            "Argmax changes value",
+            snap.changed_from_previous,
+            label_visibility="collapsed",
+        )
+    with m4:
+        st.markdown(glossary_link("Self-conditioning gate", "Self-conditioning gate"), unsafe_allow_html=True)
+        st.metric(
+            "Self-conditioning gate value",
+            f"{snap.self_conditioning:.2f}",
+            label_visibility="collapsed",
+        )
 
     if selected_stage == "input":
-        st.markdown("**Canvas entering this pass** · bidirectional attention reads all positions together.")
+        st.markdown(
+            f"**{glossary_link('Canvas', 'Canvas')} entering this pass** · "
+            f"{glossary_link('Bidirectional attention', 'Bidirectional attention')} "
+            "reads all positions together.",
+            unsafe_allow_html=True,
+        )
         st.markdown(render_tokens(snap.input_canvas, ["noise"] * 256), unsafe_allow_html=True)
 
     elif selected_stage == "predict":
-        st.markdown("**Argmax prediction** · cyan matches the scripted target; red does not.")
+        st.markdown(
+            f"**{glossary_link('Argmax prediction', 'Argmax')}** · "
+            "cyan matches the scripted target; red does not.",
+            unsafe_allow_html=True,
+        )
         classes = [
             "correct" if token == target else "rejected"
             for token, target in zip(snap.argmax_tokens, run.target)
@@ -226,11 +267,19 @@ else:
         st.markdown(render_tokens(snap.argmax_tokens, classes), unsafe_allow_html=True)
 
     elif selected_stage == "sample":
-        st.markdown("**Sampled candidates** · one Gumbel-max draw per position.")
+        st.markdown(
+            f"**Sampled candidates** · one {glossary_link('Gumbel-max', 'Gumbel-max sampling')} "
+            "draw per position.",
+            unsafe_allow_html=True,
+        )
         st.markdown(render_tokens(snap.sampled_tokens, ["noise"] * 256), unsafe_allow_html=True)
 
     elif selected_stage == "accept":
-        st.markdown("**Next canvas** · green candidates are kept; red positions are re-noised.")
+        st.markdown(
+            f"**Next {glossary_link('canvas', 'Canvas')}** · green candidates are "
+            "kept; red positions are re-noised.",
+            unsafe_allow_html=True,
+        )
         classes = ["accepted" if kept else "rejected" for kept in snap.accepted]
         st.markdown(render_tokens(snap.output_canvas, classes), unsafe_allow_html=True)
         order = np.argsort(snap.entropy)
@@ -240,11 +289,21 @@ else:
         st.plotly_chart(fig, width="stretch")
 
     else:
-        st.markdown("**Soft feedback** · the full prediction distribution conditions the next pass.")
+        st.markdown(
+            f"**Soft feedback** · the full prediction distribution conditions the "
+            f"next pass through {glossary_link('self-conditioning', 'Self-conditioning')}.",
+            unsafe_allow_html=True,
+        )
         classes = ["accepted" if kept else "rejected" for kept in snap.accepted]
         st.markdown(render_tokens(snap.output_canvas, classes), unsafe_allow_html=True)
-        st.progress(snap.self_conditioning, text=f"Self-conditioning gate: {snap.self_conditioning:.2f} / 0.80")
+        st.progress(
+            snap.self_conditioning,
+            text=f"Self-conditioning gate: {snap.self_conditioning:.2f} / 0.80",
+        )
         if is_final:
-            st.caption("Final encoder pass writes the block to the KV cache.")
+            st.caption(
+                f"Final encoder pass writes the block to the {glossary_link('KV cache', 'KV cache')}.",
+                unsafe_allow_html=True,
+            )
 
 st.caption("Tutorial simulation: the algorithm mirrors DiffusionGemma, while the story probabilities are scripted.")
